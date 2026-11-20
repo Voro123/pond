@@ -23,7 +23,8 @@ def build():
     species = ASSETS / "species"
     specimens = sorted((p for p in species.glob("*.webp") if p.stem.isdigit()), key=lambda p: int(p.stem))
     views = sorted(species.glob("field-*.webp"), key=lambda p: int(p.stem.split("-")[1]))
-    pack = library("specimenTextures", specimens)
+    overrides = {"12": species / "tench-dorsal.webp"}
+    pack = library("specimenTextures", [overrides.get(path.stem, path) for path in specimens])
     pack += f'const reefTexture="{texture(ASSETS / "reef.webp")}";\n'
     pack += library("fieldTextures", views)
     life = ASSETS / "pondlife"

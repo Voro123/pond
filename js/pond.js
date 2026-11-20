@@ -39,10 +39,13 @@ function waterPoint(x,y,required){
  return x>.045&&x<.98&&y>.025&&y<.98&&x+.68*y>.33&&!(x<.16&&y>.69)&&!(x>.75&&y<.22);
 }
 const starts=[[.43,.47,2.38],[.58,.37,.9],[.29,.58,-.85],[.56,.68,-2.5],[.36,.32,1.6],[.43,.73,-.45]];
+const SPINE_SEGMENTS=36, TENCH=12;
 let swimmers=[];
 function syncSwimmers(){swimmers=koi.map((fish,i)=>{
   const existing=swimmers.find(s=>s.fish.id===fish.id);if(existing){existing.fish=fish;return existing;}
-  const sprite=new Image();sprite.src=sceneImage(garden.fish[fish.id].type);
+  const type=garden.fish[fish.id].type;
+  const rigid=[55,57,58,59,NERITE].includes(type);
+  const sprite=new Image();sprite.src=sceneImage(type);
   const tint=coloration(fish),colored=document.createElement('canvas');
   if(tint!=='none')sprite.onload=()=>{
     colored.width=sprite.width;colored.height=sprite.height;
@@ -57,7 +60,8 @@ function syncSwimmers(){swimmers=koi.map((fish,i)=>{
   x+=zoneStart(fish.habitat)/width;
   if(garden.fish[fish.id].hatchPosition)({x,y}=garden.fish[fish.id].hatchPosition);
   const home={x,y};
-  return {fish,style:fish.kind==='鱼类'?disposition(fish):null,sprite,colored,home,x,y,angle,target:null,phase:i*1.9,length:0,turnIn:3+i,angular:0,speed:18,trail:[],bones:[],wake:1};
+  const bones=Array.from({length:SPINE_SEGMENTS+1},()=>({x:0,y:0,along:0,across:0}));
+  return {fish,type,rigid,style:fish.kind==='鱼类'?disposition(fish):null,sprite,colored,home,x,y,angle,target:null,phase:i*1.9,length:0,turnIn:3+i,angular:0,speed:18,bend:0,bones,wake:1};
 });}
 syncSwimmers();
 new ResizeObserver(sizeCanvas).observe(pond);sizeCanvas();
@@ -84,13 +88,14 @@ function steer(s,dt,i){
    s.target={x,y};s.turnIn=7+Math.random()*9;
  }
  const hour=gardenTime().getUTCHours();
- const type=garden.fish[s.fish.id].type;
+ const type=s.type;
  const cycle=(elapsed+seed*47)%(12+seed*13+(type%5)*.7);
  let activityScale=1,turnHome=false;
  switch(habit){
  case 'scrape':turnHome=true;activityScale=cycle<3?.08:.62;break;
  case 'host': case 'shelter':turnHome=cycle<13||Math.hypot(s.x-s.home.x,s.y-s.home.y)>.13;activityScale=cycle<3?.05:.8;break;
- case 'bottom':case 'graze':activityScale=cycle<7?.025:.58;break;
+ case 'bottom':case 'graze':
+   activityScale=type===TENCH?1.12+.22*Math.cos(elapsed*.55+seed*7):cycle<7?.025:.58;break;
  case 'ambush':activityScale=cycle<12?.006:1.18;break;
  case 'night':activityScale=hour>=7&&hour<=18?(cycle<10?.012:.26):1.12;turnHome=hour>=7&&hour<=18;break;
  case 'bask':activityScale=cycle<14?.006:.47;turnHome=true;break;
@@ -110,9 +115,10 @@ function steer(s,dt,i){
     schooled=d<145;vx+=Math.cos(peer.angle)*.7+dx/d*Math.min(3,d/80);vy+=Math.sin(peer.angle)*.7+dy/d*Math.min(3,d/80);}
  }
  for(const other of swimmers){if(other===s)continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
- if(!waterPoint(s.x+Math.cos(s.angle)*80/width,s.y+Math.sin(s.angle)*80/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
+ const lookahead=Math.max(80,s.length);
+ if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turn=Math.min(meal?1.35:.85,Math.max(.12,s.speed/(s.length*.49)));
+ const turn=Math.min(meal?1.35:.85,s.speed/Math.max(12,s.length*(meal?.36:.47)));
  s.angular+=(clamp(diff*1.8,-turn,turn)-s.angular)*(1-Math.exp(-dt*2.4));s.angle+=s.angular*dt;
  const cruise=24*s.fish.pace*(.84+.032*(type%11))*(.9+.17*Math.sin(elapsed*.85+i));
  const ranging=s.style==='wander'&&!turnHome&&activityScale>=.5;
@@ -127,24 +133,33 @@ function steer(s,dt,i){
  if(waiting&&!meal)speed*=.15;
  if(habit==='scrape')speed=Math.min(8,speed);
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
- speed/=1+Math.abs(diff)*.65;
+ speed/=1+Math.min(Math.abs(diff),1.1)*.45;
  s.speed+=(speed-s.speed)*(1-Math.exp(-dt*1.6));s.x+=Math.cos(s.angle)*s.speed*dt/width;s.y+=Math.sin(s.angle)*s.speed*dt/height;
- s.phase+=dt*(.6+s.speed*.080);
+ s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
  if(meal&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
- // Sample the route taken by the head at equal distances along the spine.
- const head={x:s.x*width,y:s.y*height};
- if(!s.trail.length)for(let k=0;k<100;k++)s.trail.push({x:head.x-Math.cos(s.angle)*k*2.6,y:head.y-Math.sin(s.angle)*k*2.6});
- if(Math.hypot(head.x-s.trail[0].x,head.y-s.trail[0].y)>=2.4){s.trail.unshift(head);if(s.trail.length>110)s.trail.pop();}
- const path=[head,...s.trail];let edge=0,sum=0;s.bones=[];
- for(let n=0;n<=36;n++){
-   const u=n/36,at=s.length*u;let a=path[edge],b=path[edge+1],len=Math.hypot(b.x-a.x,b.y-a.y);
-   while(sum+len<at&&edge<path.length-2){sum+=len;a=path[++edge];b=path[edge+1];len=Math.hypot(b.x-a.x,b.y-a.y);}
-   const mix=clamp((at-sum)/Math.max(.001,len),0,1),dx=len?(b.x-a.x)/len:-Math.cos(s.angle),dy=len?(b.y-a.y)/len:-Math.sin(s.angle);
-   const rigid=['bask','ambush'].includes(habit)||garden.fish[s.fish.id].type>=55;
-   const beat=Math.sin(s.phase-u*5.3)*s.length*(rigid?.008:.070)*u*u*Math.min(1,.14+s.speed/20);
-   s.bones.push({x:a.x+(b.x-a.x)*mix-dy*beat,y:a.y+(b.y-a.y)*mix+dx*beat});
+ poseFish(s,dt);
+ s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[SPINE_SEGMENTS];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
+}
+function poseFish(s,dt){
+ const turn=clamp(-s.angular*s.length/Math.max(10,s.speed),-.50,.50);
+ s.bend+=(turn-s.bend)*(1-Math.exp(-dt*5));
+ const headX=s.x*width,headY=s.y*height,step=s.length/SPINE_SEGMENTS;
+ const cos=-Math.cos(s.angle),sin=-Math.sin(s.angle);
+ const quiet=s.fish.habit==='ambush'||s.fish.kind!=='鱼类';
+ const beat=(quiet?.11:.36)*Math.min(1,.28+s.speed/24);
+ let along=0,across=0;
+ for(let n=0;n<=SPINE_SEGMENTS;n++){
+   if(n>0){
+     const u=(n-.5)/SPINE_SEGMENTS;
+     // Keep the head steady and build the turn and tail beat along the spine.
+     const tangent=s.rigid?0:u*u*(s.bend+beat*Math.sin(s.phase-u*5.3));
+     along+=step*Math.cos(tangent);across+=step*Math.sin(tangent);
+   }
+   const bone=s.bones[n];
+   bone.along=along;bone.across=across;
+   bone.x=headX+along*cos-across*sin;
+   bone.y=headY+along*sin+across*cos;
  }
- s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[35];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
 }
 function pondActivity(f){return swimmers.find(s=>s.fish.id===f.id)?.activity||activity[f.habit][0];}
 function drawFish(s){
@@ -152,11 +167,11 @@ function drawFish(s){
  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
  const mid=s.bones[17];
  if(mid.x+s.length<cam.x||mid.x-s.length>cam.x+vw/zoom||mid.y+s.length<cam.y||mid.y-s.length>cam.y+vh/zoom){if(!huntRun&&s.fish.id===garden.selected)markAt(mid.x,mid.y);return;}
- traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,s.bones[35].x,s.bones[35].y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
+ const tail=s.bones[SPINE_SEGMENTS];
+ traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,tail.x,tail.y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
  const shadow=ctx.createRadialGradient(0,0,0,0,0,1);shadow.addColorStop(0,'#04191270');shadow.addColorStop(1,'#04191200');ctx.scale(s.length*.53,h*.36);ctx.fillStyle=shadow;ctx.fillRect(-1,-1,2,2);ctx.restore();
  ctx.globalAlpha=.94;
- const rigid=[55,57,58,59,NERITE].includes(garden.fish[s.fish.id].type);
- if(rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);ctx.restore();}
+ if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);ctx.restore();}
  else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
  if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(mid.x,mid.y-h*.65-9);
@@ -165,28 +180,19 @@ function drawFish(s){
 // axis and shares exact integer pixel boundaries with both neighbours. The
 // final rotation samples the whole silhouette, including the outer fin tips.
 function drawContinuousBody(c,s,img,h){
- const head=s.bones[0],tail=s.bones[s.bones.length-1];
- const axis=Math.hypot(tail.x-head.x,tail.y-head.y)>s.length*.45?
-   Math.atan2(tail.y-head.y,tail.x-head.x):s.angle+Math.PI;
- const cos=Math.cos(axis),sin=Math.sin(axis);
- const columns=36,pixels=360,unit=pixels/s.length;
- const canvasHeight=Math.ceil((h+s.length*2)*unit)+4;
+ const head=s.bones[0],pixels=360,unit=pixels/s.length;
+ const canvasHeight=Math.ceil((h+s.length*.75)*unit)+4;
  if(!s.skin){s.skin=document.createElement('canvas');s.skin.width=pixels;s.skinCtx=s.skin.getContext('2d');}
  if(s.skin.height!==canvasHeight)s.skin.height=canvasHeight;
  const skin=s.skinCtx,mid=canvasHeight*.5;
  skin.setTransform(1,0,0,1,0,0);skin.clearRect(0,0,pixels,canvasHeight);
- let x=0,y=0,end=0;
- for(let n=0;n<columns;n++){
-   const a=s.bones[n],b=s.bones[n+1],dx=b.x-a.x,dy=b.y-a.y;
-   const tangent=clamp(Math.atan2(-dx*sin+dy*cos,dx*cos+dy*sin),-.94,.94);
-   const step=pixels/columns,nextY=y+Math.sin(tangent)*step;
-   x+=Math.cos(tangent)*step;
-   const next=Math.min(pixels,Math.max(end+1,Math.round(x)));
-   skin.setTransform(1,(nextY-y)/(next-end),0,1,end,mid+y);
-   skin.drawImage(img,img.width*n/columns,0,img.width/columns,img.height,0,-h*unit/2,next-end,h*unit);
-   y=nextY;end=next;
+ const slice=img.width/SPINE_SEGMENTS;
+ for(let n=0;n<SPINE_SEGMENTS;n++){
+   const a=s.bones[n],b=s.bones[n+1],start=Math.round(a.along*unit),end=Math.round(b.along*unit);
+   skin.setTransform(1,(b.across-a.across)*unit/(end-start),0,1,start,mid+a.across*unit);
+   skin.drawImage(img,slice*n,0,slice,img.height,0,-h*unit/2,end-start,h*unit);
  }
- c.save();c.translate(head.x,head.y);c.rotate(axis);
+ c.save();c.translate(head.x,head.y);c.rotate(s.angle+Math.PI);
  c.drawImage(s.skin,0,-mid/unit,pixels/unit,canvasHeight/unit);c.restore();
 }
 function markAt(x,y){const mark=$('#marker');mark.style.left=(x-cam.x)*zoom+'px';mark.style.top=(y-cam.y)*zoom+'px';}
