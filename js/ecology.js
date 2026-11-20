@@ -61,7 +61,7 @@ function motionFor(id,p){
  if(!petMotion.has(id)){const x=.22+p.seed*.105,y=.69+Math.sin(p.seed*8)*.075;petMotion.set(id,{x,y,homeX:x,homeY:y,angle:p.seed*7,alarm:0});}
  return petMotion.get(id);
 }
-function disturbShoal(x,y){for(const [id,p] of Object.entries(garden.amphibians)){const t=motionFor(id,p),dx=(t.x-x)*width,dy=(t.y-y)*height;if(Math.hypot(dx,dy)<100){t.angle=Math.atan2(dy,dx);t.alarm=.85;}}}
+function disturbTadpoles(x,y){for(const [id,p] of Object.entries(garden.amphibians)){const t=motionFor(id,p),dx=(t.x-x)*width,dy=(t.y-y)*height;if(Math.hypot(dx,dy)<100){t.angle=Math.atan2(dy,dx);t.alarm=.85;}}}
 function petAt(x,y){let best=null,d=26/zoom;for(const [id,p] of Object.entries(garden.amphibians)){const m=motionFor(id,p),dist=Math.hypot((x-m.x)*width,(y-m.y)*height);if(dist<d){best=id;d=dist;}}return best;}
 function drawTadpoles(dt){
  for(const [id,p] of Object.entries(garden.amphibians)){

@@ -817,7 +817,7 @@ function motionFor(id,p){
  if(!petMotion.has(id)){const x=.22+p.seed*.105,y=.69+Math.sin(p.seed*8)*.075;petMotion.set(id,{x,y,homeX:x,homeY:y,angle:p.seed*7,alarm:0});}
  return petMotion.get(id);
 }
-function disturbShoal(x,y){for(const [id,p] of Object.entries(garden.amphibians)){const t=motionFor(id,p),dx=(t.x-x)*width,dy=(t.y-y)*height;if(Math.hypot(dx,dy)<100){t.angle=Math.atan2(dy,dx);t.alarm=.85;}}}
+function disturbTadpoles(x,y){for(const [id,p] of Object.entries(garden.amphibians)){const t=motionFor(id,p),dx=(t.x-x)*width,dy=(t.y-y)*height;if(Math.hypot(dx,dy)<100){t.angle=Math.atan2(dy,dx);t.alarm=.85;}}}
 function petAt(x,y){let best=null,d=26/zoom;for(const [id,p] of Object.entries(garden.amphibians)){const m=motionFor(id,p),dist=Math.hypot((x-m.x)*width,(y-m.y)*height);if(dist<d){best=id;d=dist;}}return best;}
 function drawTadpoles(dt){
  for(const [id,p] of Object.entries(garden.amphibians)){
@@ -979,6 +979,12 @@ function waterPoint(x,y,required){
 }
 const starts=[[.43,.47,2.38],[.58,.37,.9],[.29,.58,-.85],[.56,.68,-2.5],[.36,.32,1.6],[.43,.73,-.45]];
 const SPINE_SEGMENTS=36, TENCH=12;
+const rippleResponses={
+ bold:{duration:2.8,speed:76,action:'游近察看水纹'},
+ patient:{duration:1.9,speed:0,action:'放慢游速，等水面平静'},
+ wander:{duration:2.6,speed:88,action:'绕开水纹'},
+ home:{duration:3.3,speed:82,action:'游回老地方'}
+};
 let swimmers=[];
 function syncSwimmers(){swimmers=koi.map((fish,i)=>{
   const existing=swimmers.find(s=>s.fish.id===fish.id);if(existing){existing.fish=fish;return existing;}
@@ -1004,13 +1010,43 @@ function syncSwimmers(){swimmers=koi.map((fish,i)=>{
 });}
 syncSwimmers();
 new ResizeObserver(sizeCanvas).observe(pond);sizeCanvas();
+function paddleWater(x,y,power){
+ if(!waterPoint(x,y))return;
+ splash(x,y,power);
+ const zone=zoneAt(x*width),radius=power>1?210:160;
+ if(zone==='pond')disturbTadpoles(x,y);
+ for(const s of swimmers){
+   if(!s.style||s.fish.habitat!==zone||s.rippleResponse?.readyAt>elapsed)continue;
+   const dx=(s.x-x)*width,dy=(s.y-y)*height,d=Math.hypot(dx,dy);
+   if(d>=radius)continue;
+   const profile=rippleResponses[s.style];
+   let target={x:s.x+Math.cos(s.angle)*80/width,y:s.y+Math.sin(s.angle)*80/height};
+   const away=d>0?Math.atan2(dy,dx):s.angle;
+   if(s.style==='bold'){
+     const offset=Math.min(d,38);
+     target={x:x+Math.cos(away)*offset/width,y:y+Math.sin(away)*offset/height};
+   }else if(s.style==='wander'){
+     const side=Math.sin(s.angle-away)>=0?1:-1;
+     const bypass=away+side*1.05;
+     target={x:s.x+Math.cos(bypass)*180/width,y:s.y+Math.sin(bypass)*180/height};
+     if(!waterPoint(target.x,target.y,zone)){
+       const otherSide=away-side*1.05;
+       target={x:s.x+Math.cos(otherSide)*180/width,y:s.y+Math.sin(otherSide)*180/height};
+     }
+   }else if(s.style==='home')target=s.home;
+   if(s.style!=='patient'&&!waterPoint(target.x,target.y,zone))continue;
+   const until=elapsed+profile.duration;
+   s.rippleResponse={target,until,readyAt:until+.85,profile,strength:.55+.45*(1-d/radius)};
+ }
+}
 function steer(s,dt,i){
  const g=growthOf(s.fish),bodyScale=traitScale(garden.fish[s.fish.id].traits);s.length=(28+151*Math.pow(g.length/bodyScale/65,.7))*bodyScale;
  const hx=s.x*width,hy=s.y*height,bank=zoneStart(s.fish.habitat)/width;
  const fullness=g.full,habit=s.fish.habit,seed=garden.fish[s.fish.id].seed;
  const hunger=1-fullness/100;
+ const response=s.rippleResponse?.until>elapsed?s.rippleResponse:null;
  let meal=null,waiting=false,schooled=false,dist=(145+575*hunger*hunger)*(s.style==='bold'?1.35:1);
- const eligible=fullness<88 && Date.now()-(garden.fish[s.fish.id].biteAt||0)>650;
+ const eligible=!response&&fullness<88 && Date.now()-(garden.fish[s.fish.id].biteAt||0)>650;
  for(const p of food){
    if(!eligible||p.air>0||zoneAt(p.x*width)!==s.fish.habitat)continue;
    if(habit==='scrape'?p.kind!=='algae':p.kind!=='grain'&&habit!=='graze')continue;
@@ -1043,11 +1079,11 @@ function steer(s,dt,i){
  }
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
- const partner=matingTarget(s);
- const target=partner||meal||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ const partner=response?null:matingTarget(s);
+ const target=response?.target||partner||meal||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
- if(!partner&&!meal&&(habit==='host'||habit==='school')){
+ if(!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
    const peers=swimmers.filter(other=>other!==s&&other.fish.breed===s.fish.breed);
    if(peers.length){const peer=peers.reduce((best,c)=>Math.hypot(c.x-s.x,c.y-s.y)<Math.hypot(best.x-s.x,best.y-s.y)?c:best);
     const dx=(peer.x-s.x)*width,dy=(peer.y-s.y)*height,d=Math.max(1,Math.hypot(dx,dy));
@@ -1057,23 +1093,28 @@ function steer(s,dt,i){
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turn=Math.min(meal?1.35:.85,s.speed/Math.max(12,s.length*(meal?.36:.47)));
+ const turnSpeed=response?Math.max(65,s.speed):s.speed;
+ const turnRadius=s.length*((response||meal) ? .36 : .47);
+ const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  s.angular+=(clamp(diff*1.8,-turn,turn)-s.angular)*(1-Math.exp(-dt*2.4));s.angle+=s.angular*dt;
  const cruise=24*s.fish.pace*(.84+.032*(type%11))*(.9+.17*Math.sin(elapsed*.85+i));
  const ranging=s.style==='wander'&&!turnHome&&activityScale>=.5;
  const personalAction=meal?s.style==='bold':waiting||returning||ranging;
- s.signature=!partner&&personalAction?individualHabits[s.style].action:null;
- s.activity=partner?'正在求偶':s.signature||(
+ s.signature=!response&&!partner&&personalAction?individualHabits[s.style].action:null;
+ s.activity=response?.profile.action||(partner?'正在求偶':s.signature||(
    meal?'正在觅食':activityScale<.1?'驻足休息':habit==='scrape'?'沿石刮藻':schooled?'结伴游动':turnHome?'绕巢活动':
-   habit==='host'||habit==='school'?'独自巡游':activity[habit][0]);
- if(habit==='scrape'&&!meal&&activityScale>=.1&&fullness<55)grazeFilm(s.fish,Date.now());
+   habit==='host'||habit==='school'?'独自巡游':activity[habit][0]));
+ if(!response&&habit==='scrape'&&!meal&&activityScale>=.1&&fullness<55)grazeFilm(s.fish,Date.now());
  let speed=partner?62:meal?Math.min(40+95*hunger,22+dist*(.22+.48*hunger)):cruise*activityScale;
  if(s.style==='bold'&&meal)speed*=1.28;
  if(waiting&&!meal)speed*=.15;
  if(habit==='scrape')speed=Math.min(8,speed);
+ if(response)speed=Math.min(response.profile.speed*response.strength,Math.max(0,norm-8)*1.6);
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
- s.speed+=(speed-s.speed)*(1-Math.exp(-dt*1.6));s.x+=Math.cos(s.angle)*s.speed*dt/width;s.y+=Math.sin(s.angle)*s.speed*dt/height;
+ s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
+ const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
+ if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
  if(meal&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  poseFish(s,dt);
@@ -1213,7 +1254,7 @@ function interact(x,y){
  if(!zoneAt(x*width))return;
  if(!huntRun&&pickDebris(x,y))return;
  if(mode==='feed'){cast(x,y,baitKind);return;}
- if(mode==='ripple'){splash(x,y,1.35);disturbShoal(x,y);return;}
+ if(mode==='ripple'){paddleWater(x,y,1.35);return;}
  if(!huntRun&&zoneAt(x*width)==='pond'&&hitDragonfly(x,y)){observeVisitor();return;}
  const frog=zoneAt(x*width)==='pond'&&petAt(x,y);if(frog&&!huntRun){inspectFrog(frog);return;}
  let best=null,distance=Infinity;
@@ -1247,7 +1288,7 @@ canvas.onpointermove=e=>{
  if(!drag||drag.id!==e.pointerId)return;
  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>5)drag.moved=true;
  if(drag.moved&&mode==='ripple'){
-   if(!drag.lastWave||performance.now()-drag.lastWave>80){const x=(cam.x+e.clientX/zoom)/width,y=(cam.y+e.clientY/zoom)/height;if(waterPoint(x,y)){splash(x,y,.7);disturbShoal(x,y);}drag.lastWave=performance.now();}
+   if(!drag.lastWave||performance.now()-drag.lastWave>80){const x=(cam.x+e.clientX/zoom)/width,y=(cam.y+e.clientY/zoom)/height;paddleWater(x,y,.7);drag.lastWave=performance.now();}
  }else if(drag.moved)placeCamera(drag.left+(vw*.5-dx)/zoom,drag.top+(vh*.5-dy)/zoom);
 };
 canvas.onpointerup=e=>{
