@@ -114,7 +114,7 @@ function record(text){
 // Integrate each hunger band exactly even when a tab stays closed for days.
 function metabolism(item,now=Date.now()){
  const hours=Math.max(0,now-item.metabolicAt)*RATE/3600000;
- const rate=2.4+(item.type%7)*.23+item.seed*.45;
+ const rate=(2.4+(item.type%7)*.23+item.seed*.45)/5;
  let left=hours,full=item.fullness,gain=0;
  for(const [floor,factor] of [[55,1],[25,.76],[8,.48],[0,.30]]){
    const span=Math.min(left,Math.max(0,(full-floor)/rate));gain+=span*factor;left-=span;full-=span*rate;
