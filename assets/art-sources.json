@@ -1,0 +1,144 @@
+{
+  "generator": "image_gen (built-in)",
+  "assets": [
+    {
+      "sheet": "fresh1",
+      "files": [
+        "species/06.webp",
+        "species/07.webp",
+        "species/08.webp",
+        "species/09.webp",
+        "species/10.webp",
+        "species/11.webp",
+        "species/12.webp",
+        "species/13.webp",
+        "species/14.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. a fancy white pearlscale goldfish with orange crown and fan tail; 2. a silver-gold Japanese medaka ricefish; 3. a rosy pink green bitterling; 4. a brown mottled dojo loach; 5. a lean white cloud mountain minnow crimson fins; 6. a dark olive short-bodied Chinese sleeper goby; 7. a green tench with copper eyes; 8. a long slender speckled Amur gudgeon; 9. a juvenile sterlet sturgeon with rows of pale scutes"
+    },
+    {
+      "sheet": "fresh2",
+      "files": [
+        "species/15.webp",
+        "species/16.webp",
+        "species/17.webp",
+        "species/18.webp",
+        "species/19.webp",
+        "species/20.webp",
+        "species/21.webp",
+        "species/22.webp",
+        "species/23.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. neon tetra with blue lateral neon stripe and scarlet tail half; 2. a male guppy with wide blue orange patterned fan tail; 3. a Siamese fighting fish with streaming crimson fins; 4. a tiger barb with black-gold bands; 5. zebra danio with horizontal navy stripes; 6. a panda cory catfish black mask and saddle; 7. a sucker mouth albino bristlenose pleco; 8. a silver freshwater hatchetfish with slim long pectoral fins; 9. an elongated mottled brown kuhli loach with bold black bands"
+    },
+    {
+      "sheet": "fresh3",
+      "files": [
+        "species/24.webp",
+        "species/25.webp",
+        "species/26.webp",
+        "species/27.webp",
+        "species/28.webp",
+        "species/29.webp",
+        "species/30.webp",
+        "species/31.webp",
+        "species/32.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. a small redtail black sharkminnow, black body with red tail; 2. a bronze gourami with iridescent silver pearl spots; 3. an electric blue dwarf gourami with red bands; 4. a marbled freshwater angelfish with long pointed fins; 5. a blue and orange Boesemani rainbowfish; 6. a slender striped turquoise killifish with yellow tail; 7. a dwarf pea puffer olive with round black spots; 8. a turquoise ram cichlid yellow head and black side mark; 9. a bronze African butterflyfish with broad patterned pectoral wings"
+    },
+    {
+      "sheet": "reef1",
+      "files": [
+        "species/33.webp",
+        "species/34.webp",
+        "species/35.webp",
+        "species/36.webp",
+        "species/37.webp",
+        "species/38.webp",
+        "species/39.webp",
+        "species/40.webp",
+        "species/41.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. a common orange clownfish white bands outlined black; 2. a blue regal tang yellow tail; 3. a bright yellow tang; 4. a green and vermilion psychedelic mandarinfish; 5. a longnose yellow butterflyfish with black eye mask; 6. a pajama cardinalfish spotted tail and black waistband; 7. a purple firefish with a white head and tall dorsal streamer; 8. a royal gramma purple in front yellow at tail; 9. a Banggai cardinalfish with black bands white spots and long dorsal fins"
+    },
+    {
+      "sheet": "reef2",
+      "files": [
+        "species/42.webp",
+        "species/43.webp",
+        "species/44.webp",
+        "species/45.webp",
+        "species/46.webp",
+        "species/47.webp",
+        "species/48.webp",
+        "species/49.webp",
+        "species/50.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. a red lionfish with wide fan of striped feathery pectoral fins; 2. a tiny orange longhorn cowfish boxy body with horns; 3. a juvenile spotted boxfish yellow with black spots; 4. a black and white banded coral catshark; 5. a spotted blue dot ribbontail stingray with thin long tail; 6. a slender yellow trumpetfish with tube snout; 7. an elongated spotted snowflake moray eel; 8. a purple and orange lyretail anthias; 9. a green bird wrasse with a long curved beak"
+    },
+    {
+      "sheet": "mixed",
+      "files": [
+        "species/51.webp",
+        "species/52.webp",
+        "species/53.webp",
+        "species/54.webp",
+        "species/55.webp",
+        "species/56.webp",
+        "species/57.webp",
+        "species/58.webp",
+        "species/59.webp"
+      ],
+      "prompt": "Produce a clean natural history sprite atlas, SQUARE canvas. EXACTLY 3 columns by 3 rows, nine clearly separated individuals, each centered in its assigned equal cell with ample margin. Each specimen is exactly overhead dorsal view, head looking LEFT, tail on the RIGHT, long axis horizontal. Realistic natural proportions, delicately textured scales, soft natural directional light, no water or shadows, chroma key perfectly flat solid magenta #ff00ff backdrop. All limbs and fins contained within their own cell, large enough for a top-down pond game. No text, no labels, no outlines, no grids. Read subjects from left to right then top to bottom: 1. a blue-green chromis damselfish; 2. a copperband butterflyfish white and orange stripes; 3. a red and white longnose hawkfish with crosshatch pattern; 4. a Moorish idol black-white-yellow bands long dorsal ribbon; 5. a Chinese pond turtle hatchling with olive ridged shell, four feet and head at LEFT; 6. a pale pink axolotl with six red feathery gills and four limbs; 7. a vivid cherry red freshwater dwarf shrimp with legs and antennae, rostrum at left; 8. a small mottled brown cuttlefish, tentacles and eyes at LEFT and rounded mantle at RIGHT; 9. a small cobalt blue crayfish with two claws pointing LEFT"
+    },
+    {
+      "files": [
+        "reef.webp"
+      ],
+      "prompt": "Photorealistic top-down orthographic overhead aerial view of an entire sheltered tropical Japanese coastal tide garden at Ishigaki, wide 16:9 image. Wide central 75% expanse of calm clear turquoise and aquamarine shallow ocean water over a soft sandy floor crossed by natural sunlight caustics; gently rippled surface. Small soft coral heads clustered along margin especially lower right, small dark anemone garden right, a few natural volcanic rocks upper left. Show entire natural habitat as a continuous real overhead environment for a game with added small animated fish. No horizon, no people, NO animals, no fish, no text. Restrained warm sunlight, unexaggerated earthy coral colors, real photographic surface and scale, consistent direct overhead camera, high detail."
+    },
+    {
+      "files": [
+        "species/field-0.webp",
+        "species/field-1.webp",
+        "species/field-2.webp",
+        "species/field-3.webp",
+        "species/field-4.webp",
+        "species/field-5.webp",
+        "species/field-6.webp",
+        "species/field-7.webp",
+        "species/field-8.webp"
+      ],
+      "prompt": "Naturalist game sprite photography, a square 3 by 3 sprite atlas, all nine specimens precisely in equal square grid cells against a perfectly flat magenta chromakey background with no shadows and no labels. The camera is directly vertically ABOVE the dorsal spine looking DOWN, each specimen symmetrical bilaterally about a horizontal line with its head at LEFT, eye on BOTH sides of head. Show the BACK of every animal. No side profiles at all. A fish vertically deep but narrow must look THIN from this angle. Row 1: an olive brown small frog tadpole with plump oval head and tapering waving transparent tail (NO legs); a red Japanese dragonfly with four delicate clear wings spread perpendicular to body; orange and white clownfish with bright white transverse bands and two pectoral fins spread bilaterally. Row 2: narrow dorsal view of royal blue regal tang with yellow tail; narrow dorsal view of bright yellow tang; longnose yellow butterflyfish from above with two spread pectorals. Row 3: juvenile red-black-white freshwater marbled angelfish seen from directly overhead; deep blue narrow dorsal view of Moorish idol with black and yellow bands and a dorsal streamer; a narrow copperband butterflyfish from directly overhead with black eye spot at rear. All animals separate and fully inside their cells with margin, anatomical realism, excellent matching overhead flat light, vivid natural colors."
+    },
+    {
+      "files": [
+        "pondlife/frog-0.webp",
+        "pondlife/frog-1.webp",
+        "pondlife/frog-2.webp",
+        "pondlife/frog-3.webp"
+      ],
+      "prompt": "A realistic natural history game asset atlas on absolutely pure magenta #ff00ff chroma key ground. Exactly four isolated specimens in a precise two column by two row square grid, complete and centered, large ample clear pink gutter around every specimen. Camera looks straight down at dorsal backs, each head to LEFT, tail or folded hind legs to right. TOP LEFT a realistic Japanese pond frog tadpole with bulbous olive round head and a long undulating translucent tail without legs. TOP RIGHT a slightly larger tadpole with exactly two tiny hind legs and a long tail. BOTTOM LEFT green-brown juvenile froglet with four small legs and a clearly visible remaining tail. BOTTOM RIGHT beautiful adult Japanese pond frog, lifelike elegant slender mottled olive and emerald back, pale central dorsal stripe, fine pebbled moist skin with tiny glints, golden eyes at either side of pointed head, hind legs folded naturally for resting on a lily pad. Amphibians photographed with true fine wildlife texture, no painted outlines, no cartoons, no text, no props or pads or water, no cast shadows, evenly lit from upper left."
+    },
+    {
+      "files": [
+        "pondlife/cedar.webp"
+      ],
+      "prompt": "A photorealistic architectural material texture, vertical 2:3 photo. Looking STRAIGHT DOWN at a Japanese garden cedar boardwalk. Entire rectangular image filled edge to edge by weathered honey-brown gray horizontal timber planks, every board extends across whole image from left to right. 16 planks stacked from top to bottom, narrow dark gaps, fine natural grain and old recessed nail heads near both sides. No vanishing point, no land, no water, no railings, no words, no overlay, no objects. Balanced shaded daylight, subtle natural variation, quietly beautiful timber used as a top-down game world texture."
+    },
+    {
+      "files": [
+        "pondlife/debris-0.webp",
+        "pondlife/debris-1.webp",
+        "pondlife/debris-2.webp"
+      ],
+      "prompt": "Naturalistic botanical specimen game sprites, pure flat #ff00ff magenta chroma key backdrop, wide 3:1 image, exactly THREE separate specimens arranged in one row, each centered within its own square with ample margin. Left: one curled dead tan Japanese maple leaf with visible veins and short stalk. Middle: a small slender forked weathered reddish brown twig, a few tiny nodes, diagonally arranged. Right: one small irregular loose clump of olive-green filamentous pond algae with a few ochre plant fragments intertwined. Photograph each directly from above, fine texture, natural soft sunlight, absolutely no cast shadows, no water, no text, no ground or grid. Realistic modest garden debris to be composited on water."
+    },
+    {
+      "files": [
+        "pondlife/nerite.webp"
+      ],
+      "prompt": "A single zebra nerite freshwater snail, isolated macro specimen for a realistic Japanese pond game. True transparent background. Overhead dorsal view tilted slightly to reveal the olive gold and black striped rounded shell and charcoal soft foot. Head and two fine extended antennae pointing left, shell apex towards the right. Soft diffuse daylight, finely textured wet shell, natural proportions. Entire living animal centered and fully visible. No ground, rocks, water surface, shadow outside the silhouette, lettering or other objects."
+    }
+  ]
+}
