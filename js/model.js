@@ -11,14 +11,14 @@ const breeds = [
 const CAPACITY=20;
 for(const f of breeds)Object.assign(f,{habit:'cruise',habitat:'pond',kind:'鱼类'});
 const offers=[
-  {cost:12,base:29,days:3}, {cost:18,base:46,days:4},
-  {cost:20,base:54,days:4.5}, {cost:26,base:78,days:6},
-  {cost:16,base:43,days:3.5}, {cost:14,base:34,days:3.2}
+  {cost:120,base:290,days:3}, {cost:360,base:920,days:4},
+  {cost:520,base:1404,days:4.5}, {cost:1200,base:3600,days:6},
+  {cost:240,base:645,days:3.5}, {cost:180,base:437,days:3.2}
 ];
-speciesRows.forEach(([breed,habit,max,cost],i)=>{
+speciesRows.forEach(([breed,habit,max,cost,marketCost=cost],i)=>{
  const type=i+6,days=2.4+cost*.09;
  breeds.push({id:'sp'+type,breed,habit,kind:i<49?'鱼类':['爬行类','两栖类','甲壳类','头足类','甲壳类'][i-49],nature:activity[habit][0],marking:activity[habit][1],pace:activity[habit][2],max,adult:days,habitat:habitatOf(type),image:specimenTextures[i]});
- offers.push({cost,base:Math.round(cost*2.5),days});
+ offers.push({cost:marketCost,base:Math.round(marketCost*2.5),days});
 });
 breeds[NERITE]={id:'sp62',breed:'斑马螺',kind:'腹足类',habit:'scrape',habitat:'pond',max:3,adult:2.8,pace:.25,nature:'安静',marking:activity.scrape[1],image:neriteTexture};
 offers[NERITE]={cost:7,base:18,days:2.8};
@@ -35,7 +35,8 @@ function discover(data,type){
 }
 function upgrade(data){
  if(data.version===1){for(const [i,f] of breeds.slice(0,6).entries()){if(data.fish[f.id])Object.assign(data.fish[f.id],{type:i,seed:.19+i*.125,care:0,lastMeal:null});}Object.assign(data,{version:2,jade:60,next:7});}
- data.amphibians??={};data.nextFrog??=1;data.quest??={round:0,hits:[]};
+ data.events=data.events.filter(event=>importantEvent(event.text)).map(event=>({...event,text:event.text.replace('首次投喂后可领取开庭委托奖励。','')}));
+ data.amphibians??={};data.nextFrog??=1;delete data.quest;delete data.survey;delete data.huntPurse;
  if(data.version===2){
   const now=Date.now();data.discovered=[];data.zone='pond';data.reef=false;data.marketSold={};data.wildStart=now+32000;
   for(const f of Object.values(data.fish)){discover(data,f.type);f.metabolicAt=now;f.bodyDays=Math.max(0,(now-f.born)*RATE/DAY);f.fullness=47;f.deathAt=Math.max(now+DAY,f.born+lifeDays(f.type,f.seed)*DAY/RATE);}
@@ -52,7 +53,7 @@ function upgrade(data){
 }
 function initialState(now){
  const f=individual(0,now-2*DAY/RATE,.44);f.metabolicAt=now;f.bodyDays=2;f.fullness=27;f.starter=true;
- return {version:3,created:now,jade:0,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,quest:{round:0,hits:[]},discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。首次投喂后可领取开庭委托奖励。'}]};
+ return {version:3,created:now,jade:0,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。'}]};
 }
 function validGarden(data){
   return data && [1,2,3].includes(data.version) && Number.isFinite(data.created) && Array.isArray(data.events) && Array.isArray(data.favorites);
@@ -103,7 +104,13 @@ function save(){
   }
   catch{document.querySelector("#saved").textContent="浏览器未允许本地存档";}
 }
-function record(text){garden.events.unshift({at:Date.now(),text});garden.events= garden.events.slice(0,100);}
+function importantEvent(text){
+ return !/得到一次照料|游来吃下了鱼食|吃下藻屑，第|^开始关注|^清理.+获得 1 庭玉|^成鱼留养收入到账|^完成水域巡查|^鱼市购入|^完成委托/.test(text);
+}
+function record(text){
+ if(!importantEvent(text))return;
+ garden.events.unshift({at:Date.now(),text});garden.events=garden.events.slice(0,100);
+}
 // Integrate each hunger band exactly even when a tab stays closed for days.
 function metabolism(item,now=Date.now()){
  const hours=Math.max(0,now-item.metabolicAt)*RATE/3600000;

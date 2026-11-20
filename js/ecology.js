@@ -76,10 +76,11 @@ function drawTadpoles(dt){
   if(m.alarm<=0)m.angle+=Math.atan2(Math.sin(a-m.angle),Math.cos(a-m.angle))*Math.min(1,dt*3.1);
   let speed=m.alarm>0?46+22*p.seed:goal?30+(100-g.full)*.3:8+g.energy*.05;
   if(g.stage===3)speed=35*Math.pow(Math.max(0,Math.sin(elapsed*1.6+p.seed*12)),6);
+  if(p.traits.includes('fast'))speed*=1.5;
   m.alarm-=dt;m.x+=Math.cos(m.angle)*speed*dt/width;m.y+=Math.sin(m.angle)*speed*dt/height;
   if(goal&&nearest<10){
     eatGrain(goal);
-    if(Date.now()-p.lastMeal>22000){p.meals++;p.lastMeal=Date.now();record('「'+p.name+'」吃下藻屑，第 '+p.meals+' 次照料。');questHit('frogFeed',id);save();note(p.name+' 吃饱了 · 照料 '+p.meals+' 次');}
+    if(Date.now()-p.lastMeal>22000){p.meals++;p.lastMeal=Date.now();record('「'+p.name+'」吃下藻屑，第 '+p.meals+' 次照料。');save();note(p.name+' 吃饱了 · 照料 '+p.meals+' 次');}
   }
   if(g.stage<3)paintFrog(ctx,id,p,m,g.stage);
   if(garden.focusFrog===id){$('#marker').textContent='◇ '+p.name;$('#marker').hidden=false;markAt(m.x*width,m.y*height-23);}

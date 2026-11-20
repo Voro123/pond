@@ -126,10 +126,11 @@ function steer(s,dt,i){
  if(s.style==='bold'&&meal)speed*=1.28;
  if(waiting&&!meal)speed*=.15;
  if(habit==='scrape')speed=Math.min(8,speed);
+ if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.abs(diff)*.65;
  s.speed+=(speed-s.speed)*(1-Math.exp(-dt*1.6));s.x+=Math.cos(s.angle)*s.speed*dt/width;s.y+=Math.sin(s.angle)*s.speed*dt/height;
  s.phase+=dt*(.6+s.speed*.080);
- if(meal&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');questHit('feed',s.fish.id);save();}}
+ if(meal&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  // Sample the route taken by the head at equal distances along the spine.
  const head={x:s.x*width,y:s.y*height};
  if(!s.trail.length)for(let k=0;k<100;k++)s.trail.push({x:head.x-Math.cos(s.angle)*k*2.6,y:head.y-Math.sin(s.angle)*k*2.6});
@@ -150,7 +151,7 @@ function drawFish(s){
  if(!s.sprite.naturalWidth||!s.bones.length)return;
  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
  const mid=s.bones[17];
- if(mid.x+s.length<cam.x||mid.x-s.length>cam.x+vw/zoom||mid.y+s.length<cam.y||mid.y-s.length>cam.y+vh/zoom){if(s.fish.id===garden.selected)markAt(mid.x,mid.y);return;}
+ if(mid.x+s.length<cam.x||mid.x-s.length>cam.x+vw/zoom||mid.y+s.length<cam.y||mid.y-s.length>cam.y+vh/zoom){if(!huntRun&&s.fish.id===garden.selected)markAt(mid.x,mid.y);return;}
  traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,s.bones[35].x,s.bones[35].y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
  const shadow=ctx.createRadialGradient(0,0,0,0,0,1);shadow.addColorStop(0,'#04191270');shadow.addColorStop(1,'#04191200');ctx.scale(s.length*.53,h*.36);ctx.fillStyle=shadow;ctx.fillRect(-1,-1,2,2);ctx.restore();
  ctx.globalAlpha=.94;
@@ -263,12 +264,11 @@ function drawMap(){
  for(const s of swimmers){mapCtx.fillStyle=s.fish.id===garden.selected?'#ffe6a5':'#d5cdc0';mapCtx.beginPath();mapCtx.arc(s.x*width*sx,s.y*map.height,2,0,Math.PI*2);mapCtx.fill();}
  $('#region').textContent=regionAt((cam.x+vw/zoom/2)/width,(cam.y+vh/zoom/2)/height);
 }
-function surveyHit(x,y){const region=regionAt(x,y);surveyRegion(region);questHit('survey',region);}
 function interact(x,y){
  if(!zoneAt(x*width))return;
  if(!huntRun&&pickDebris(x,y))return;
  if(mode==='feed'){cast(x,y,baitKind);return;}
- if(mode==='ripple'){if(waterPoint(x,y))surveyHit(x,y);splash(x,y,1.35);disturbShoal(x,y);return;}
+ if(mode==='ripple'){splash(x,y,1.35);disturbShoal(x,y);return;}
  if(!huntRun&&zoneAt(x*width)==='pond'&&hitDragonfly(x,y)){observeVisitor();return;}
  const frog=zoneAt(x*width)==='pond'&&petAt(x,y);if(frog&&!huntRun){inspectFrog(frog);return;}
  let best=null,distance=Infinity;
@@ -302,7 +302,7 @@ canvas.onpointermove=e=>{
  if(!drag||drag.id!==e.pointerId)return;
  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>5)drag.moved=true;
  if(drag.moved&&mode==='ripple'){
-   if(!drag.lastWave||performance.now()-drag.lastWave>80){const x=(cam.x+e.clientX/zoom)/width,y=(cam.y+e.clientY/zoom)/height;if(waterPoint(x,y)){splash(x,y,.7);disturbShoal(x,y);surveyHit(x,y);}drag.lastWave=performance.now();}
+   if(!drag.lastWave||performance.now()-drag.lastWave>80){const x=(cam.x+e.clientX/zoom)/width,y=(cam.y+e.clientY/zoom)/height;if(waterPoint(x,y)){splash(x,y,.7);disturbShoal(x,y);}drag.lastWave=performance.now();}
  }else if(drag.moved)placeCamera(drag.left+(vw*.5-dx)/zoom,drag.top+(vh*.5-dy)/zoom);
 };
 canvas.onpointerup=e=>{

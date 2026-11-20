@@ -24,7 +24,7 @@ function render(){
   $('#clock').textContent=gardenTime().toISOString().slice(11,16);
   $('#peekImg').hidden=!current();$('#peekName').textContent=current()?.breed??'池中名册';
   if(current() && $('#peekImg').getAttribute('src')!==current().image)$('#peekImg').src=current().image;
-  if(typeof paintFocus==='function'){paintFocus();paintQuest();}
+  if(typeof paintFocus==='function'){paintFocus();}
   const empty=!current();
   $('.profile').hidden=empty;$('#marker').hidden=empty;
   if(empty)return;

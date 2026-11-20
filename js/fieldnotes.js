@@ -100,13 +100,14 @@ function updateBehaviorClue(run){
  $('#huntCounter').textContent='行为寻踪 · 轻点正在这样活动的生物';
  $('#huntTarget').textContent=run.clue||'等待池中生物活动';
 }
-function startBehaviorHunt(){
+async function startBehaviorHunt(){
  const options=behaviorOptions();if(!options.length){note('等生物开始活动再来观察');return;}
+ if(!await reserveHunt())return;
  const special=options.filter(a=>['正在求偶','正在觅食','沿石刮藻','结伴游动','候食','抢先追饵'].includes(a));
  const clues=special.length?special:options,now=performance.now();
  huntRun={behavior:true,start:now,end:now+60000,clue:clues[Math.floor(Math.random()*clues.length)],index:0};
  modal.close();showInspector(false);document.querySelector('[data-mode="observe"]').click();
- $('#quest').style.visibility='hidden';$('#marker').style.visibility='hidden';$('#huntHud').hidden=false;
+ $('#marker').style.visibility='hidden';$('#huntHud').hidden=false;
  $('#huntHud img').hidden=true;tickHunt();
 }
 function catchBehavior(f){

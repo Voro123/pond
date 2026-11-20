@@ -2,9 +2,9 @@
 function refreshPopulation(){
   rebuildRoster();buildTiles();syncSwimmers();render();
 }
-function note(message){
+function note(message,duration=4000){
   const el=$('#notice');el.textContent=message;el.hidden=false;
-  clearTimeout(note.timer);note.timer=setTimeout(()=>el.hidden=true,4000);
+  clearTimeout(note.timer);note.timer=setTimeout(()=>el.hidden=true,duration);
 }
 const MARKET_HOUR=3600000,REEF_COST=300;
 function localStock(zone=garden.zone){return koi.filter(f=>f.habitat===zone);}
@@ -21,11 +21,11 @@ function stockFor(hour=Math.floor(Date.now()/MARKET_HOUR)){
  const used=[choose(common,3,0),choose(pond,5,1),choose(tropical,3,7),choose(reef,5,2),choose(reef,5,11),choose(specials,1,3)];
  return used.map((type,i)=>{
    const plain=type===TADPOLE?6:offers[type].cost;
-   const traits=rollTraits([garden.created,'market',hour,type].join('/')),factor=traitValue(traits);
+   const traits=rollTraits([garden.created,'market',hour,type].join('/'));
    // Long waves keep a species' underlying quote smooth across hourly batches.
    const phase=sampleUnit(salt+'/'+type)*Math.PI*2;
    const rate=.135*Math.sin(hour*.18+phase)+.065*Math.sin(hour*.29-phase);
-   const base=plain*factor,price=Math.max(Math.ceil(plain*.8),Math.min(Math.floor(plain*1.2),Math.round(plain*(1+rate))))*factor;
+   const base=plain,price=Math.max(Math.ceil(plain*.8),Math.min(Math.floor(plain*1.2),Math.round(plain*(1+rate))));
    const sex=breeds[type]?.kind==='鱼类'?(sampleUnit([garden.created,hour,type].join('/'))<.5?'雌':'雄'):null;
    return {type,base,price,sex,traits};
  });
@@ -66,25 +66,26 @@ async function purchase(type,hour){
      id='k'+String(garden.next++).padStart(2,'0');garden.fish[id]={...individual(type,Date.now(),Math.random()),traits:offer.traits,sex:offer.sex,hatchery:true};
      garden.selected=id;garden.focusFrog=null;rebuildRoster();
    }
-   record('鱼市购入'+itemInfo(type).breed+'，花费 '+offer.price+' 庭玉。');
+   const breed=itemInfo(type).breed;
+   const lucky=offer.traits.length?'幸运入池！「'+breed+'」拥有 '+traitText(offer.traits)+'，成年出售时享受特性加价！':'';
+   if(lucky)record(lucky);
    save();refreshPopulation();setBackdrop();modal.close();showInspector(false);
-   if(type===TADPOLE)inspectFrog(id);else{chooseBait(type===NERITE?'algae':'grain');locateFish(id);note(itemInfo(type).breed+'已入池');}
+   if(type===TADPOLE)inspectFrog(id);else{chooseBait(type===NERITE?'algae':'grain');locateFish(id);}
+   note(lucky||breed+'已入池',lucky?8000:4000);
  };
  if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
 }
 function showMarket(){
  const hour=Math.floor(Date.now()/MARKET_HOUR),body=openDialog('潮时鱼市');body.dataset.marketHour=hour;
  if(garden.seenMarketHour!==hour && !document.hidden){garden.seenMarketHour=hour;save();}
- body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。</p>';
+ body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。天生特性买入后揭晓，仅在出售估价时加价。</p>';
  const stall=body.querySelector('.stall');
- for(const {type,base,price,sex,traits} of stockFor(hour)){
+ for(const {type,base,price,sex} of stockFor(hour)){
    const f=itemInfo(type),card=document.createElement('article'),diff=Math.round(100*(price/base-1));
    card.className='lot';
    const habitat=f.habitat==='reef'?'潮间礁池':'镜水庭';
-   const traitsMarkup=traitDefs.filter(t=>traits.includes(t.id)).map(t=>'<span>'+t.name+'</span>').join('');
    card.innerHTML='<div class="lot-image"><img alt="" src="'+f.image+'"></div>'+
      '<h3>'+f.breed+'</h3><small class="lot-meta">'+habitat+' · '+(sex?sex+'性':f.kind)+'</small>'+
-     (traits.length?'<div class="lot-traits">'+traitsMarkup+'<span>身价 ×'+traitValue(traits)+'</span></div>':'')+
      '<div class="lot-order"><div class="quote"><b>'+price+' 玉</b><small>'+(!diff?'平价':(diff>0?'+':'')+diff+'%')+'</small></div></div>';
    const button=document.createElement('button'),reason=purchaseReason(type,price,hour);
    button.disabled=!!reason;button.textContent=reason||'买入一只';button.onclick=()=>purchase(type,hour);
@@ -104,6 +105,26 @@ function updateMarket(){
  clock.textContent=time;
 }
 updateMarket();setInterval(updateMarket,500);document.addEventListener("visibilitychange",updateMarket);
+function releaseFish(){
+ const f=current();if(!f||!garden.fish[f.id])return;
+ const id=f.id,body=openDialog('放生');
+ body.innerHTML='<h3>'+f.breed+'</h3><p class="market-help">放生后，它将离开池庭。放生免费，没有庭玉收入。</p><div class="sale-actions"><button id="keepFish">继续留养</button><button id="confirmRelease">确认放生</button></div>';
+ $('#keepFish').onclick=()=>modal.close();
+ $('#confirmRelease').onclick=async()=>{
+  const commit=()=>{
+   if(isEmptySlot()){location.reload();return;}
+   const latest=readState();
+   if(latest.created!==garden.created){location.reload();return;}
+   garden=latest;
+   if(!garden.fish[id]){refreshPopulation();modal.close();return;}
+   delete garden.fish[id];garden.favorites=garden.favorites.filter(key=>key!==id);
+   record('放生「'+f.breed+'」，回归自然。');
+   refreshPopulation();save();modal.close();note('「'+f.breed+'」已放生');
+  };
+  if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
+ };
+}
+$('#releaseFish').onclick=releaseFish;
 function offerSale(){
   const f=current();if(!f||growthOf(f).maturity<1)return;
   const id=f.id,value=appraisal(f);
@@ -114,7 +135,7 @@ function offerSale(){
     if(!garden.fish[id]||growthOf(f).maturity<1)return;
     settleIncome();
     const price=appraisal(f).price;garden.jade+=price;delete garden.fish[id];garden.favorites=garden.favorites.filter(k=>k!==id);
-    questHit('sale',id);record('售出'+value.label+'「'+f.breed+'」，收入 '+price+' 庭玉。');refreshPopulation();save();modal.close();note('「'+f.breed+'」已成交，收入 '+price+' 庭玉');
+    record('售出'+value.label+'「'+f.breed+'」，收入 '+price+' 庭玉。');refreshPopulation();save();modal.close();note('「'+f.breed+'」已成交，收入 '+price+' 庭玉');
   };modal.showModal();
 }
 $('#sell').onclick=offerSale;$('#market').onclick=showMarket;$('#buyMore').onclick=showMarket;
@@ -143,8 +164,8 @@ function setBackdrop(){
  $('h1').firstChild.nodeValue=garden.zone==='reef'?'潮间礁池 ':'镜水庭 ';
 }
 function switchZone(zone){
+ if(huntRun)endHunt();
  if(zone==='reef'&&!garden.reef)return;
- if(typeof huntRun!=='undefined'&&huntRun)endHunt();
  garden.zone=zone;garden.focusFrog=null;chooseBait('grain');refreshPopulation();setBackdrop();save();showInspector(false);placeCamera(zoneStart(zone)+width*.48,height*.49);
 }
 function habitatDialog(){
@@ -157,17 +178,7 @@ function habitatDialog(){
   const b=document.createElement('button');b.textContent=locked?'扩建 · '+REEF_COST+' 玉':garden.zone===zone?'当前水域':'前往';b.disabled=locked?(garden.jade<REEF_COST||raised<4):garden.zone===zone;
   b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>n!==VISITOR).length<4)return;garden.jade-=REEF_COST;garden.reef=true;record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
  }
- const aid=document.createElement('p');aid.className='market-help';aid.textContent='巡查三处水域可以领取 4 庭玉。选择拨水前往三个不同分区，每个现实小时可领取一次。';body.append(aid);
- const survey=garden.survey,button=document.createElement('button');button.className='primary-action';
- const hour=Math.floor(Date.now()/MARKET_HOUR),n=survey?.hour===hour?survey.regions.length:0,claimed=survey?.hour===hour&&survey.claimed;
- button.textContent=claimed?'巡查津贴已领取':'领取巡查津贴 · '+n+' / 3';button.disabled=claimed||n<3;
- button.onclick=()=>{if(!garden.survey||garden.survey.hour!==Math.floor(Date.now()/MARKET_HOUR)||garden.survey.claimed||garden.survey.regions.length<3)return;garden.survey.claimed=true;garden.jade+=4;record('完成水域巡查，获得 4 庭玉。');save();render();habitatDialog();};body.append(button);
  if(garden.zone==='pond'&&dragonflyState()){const b=document.createElement('button');b.className='primary-action';b.textContent='前往赤蜻活动水岸';b.onclick=()=>{const v=dragonflyState();modal.close();placeCamera(v.x*width,v.y*height);document.querySelector('[data-mode="observe"]').click();note('轻点蜻蜓，记录这位野生访客');};body.append(b);}
-}
-function surveyRegion(region){
- const hour=Math.floor(Date.now()/MARKET_HOUR);
- if(garden.survey?.hour!==hour)garden.survey={hour,regions:[],claimed:false};
- if(!garden.survey.regions.includes(region)&&garden.survey.regions.length<3){garden.survey.regions.push(region);save();if(garden.survey.regions.length===3)note('三处水域已巡查 · 到水域舆图领取 4 庭玉');}
 }
 for(const b of document.querySelectorAll('#zoneJumps button'))b.onclick=()=>switchZone(b.dataset.zone);
 $('#zones').onclick=habitatDialog;$('#expandHabitat').onclick=habitatDialog;
