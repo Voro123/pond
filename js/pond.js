@@ -52,7 +52,7 @@ const rippleResponses={
  home:{duration:3.3,speed:82,action:'游回老地方'}
 };
 let swimmers=[];
-function syncSwimmers(){swimmers=koi.map((fish,i)=>{
+function syncSwimmers(){shoalTick=0;swimmers=koi.map((fish,i)=>{
   const existing=swimmers.find(s=>s.fish.id===fish.id);if(existing){existing.fish=fish;return existing;}
   const type=garden.fish[fish.id].type;
   const rigid=[55,57,58,59,NERITE].includes(type);

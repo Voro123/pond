@@ -17,9 +17,10 @@ function rockDetour(s,angle,habitatSite,seed){
  for(const rock of visibleRocks){
   if(Boolean(rock.reef)!==(s.fish.habitat==='reef'))continue;
   const rx=(rock.site.x-s.x)*width,ry=(rock.site.y-s.y)*height;
-  const radius=rock.w*.5+halfWidth+8;
-  if(habitatSite&&(rock.reef||rock.types?.includes(s.type)||rock===spawningStone&&s.type===RAM)
-   &&(rock===driftwood||Math.hypot((rock.site.x-habitatSite.x)*width,(rock.site.y-habitatSite.y)*height)<rock.w*.65)){
+  const radius=(rock===crevice?creviceRadius:rock.w*.5)+halfWidth+8;
+  const visitsWood=rock===driftwood&&rock.types.includes(s.type);
+  const usesSurface=rock.reef||(rock.site===baskingStone&&s.type===BASKING_TURTLE)||(rock===spawningStone&&s.type===RAM);
+  if(habitatSite&&(visitsWood||usesSurface&&Math.hypot((rock.site.x-habitatSite.x)*width,(rock.site.y-habitatSite.y)*height)<rock.w*.65)){
    s.accessRock=rock;continue;
   }
   // Keep the chosen course until the tail has passed the obstacle as well.
@@ -30,6 +31,11 @@ function rockDetour(s,angle,habitatSite,seed){
   }
   const ahead=rx*dx+ry*dy,cross=rx*dy-ry*dx;
   if(ahead<=0||ahead>=best||Math.abs(cross)>=radius)continue;
+  // An entrance on the near rim ends the approach before the rock behind it.
+  if(rock===crevice&&habitatSite){
+   const travel=Math.hypot((habitatSite.x-s.x)*width,(habitatSite.y-s.y)*height);
+   if(ahead>travel&&Math.hypot(rx-dx*travel,ry-dy*travel)>=radius-8)continue;
+  }
   const side=Math.abs(cross)>2?Math.sign(cross):(seed<.5?-1:1);
   const tangent=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(rx,ry))))+.19;
   heading=Math.atan2(ry,rx)+side*tangent;
@@ -49,8 +55,9 @@ function clearBodyObstacles(s,dt){
   if(rock===s.accessRock&&rock!==driftwood||Boolean(rock.reef)!==(s.fish.habitat==='reef'))continue;
   const x=rock.site.x*width,y=rock.site.y*height;
   // The half-segment margin covers the space between sampled spine points.
-  if(Math.hypot(s.x*width-x,s.y*height-y)>s.length+rock.w*.5+margin)continue;
-  const radius=(rock===driftwood?rock.h:rock.w)*.5+margin;
+  const outerRadius=rock===crevice?creviceRadius:rock.w*.5;
+  if(Math.hypot(s.x*width-x,s.y*height-y)>s.length+outerRadius+margin)continue;
+  const radius=(rock===driftwood?rock.h*.5:outerRadius)+margin;
   let nx=0,ny=0,min=radius*radius;
   for(const bone of s.bones){
    let dx=bone.x-x,dy=bone.y-y;

@@ -38,7 +38,7 @@ function bottomDestination(s,seed,hour){
  case BASKING_TURTLE:
   if(hour<7||hour>=19)return {x:baskingStone.x+.055,y:baskingStone.y-.008};
   return t%46<30?baskingStone:{x:baskingStone.x+.042,y:baskingStone.y-.014};
- case SLEEPER:return {x:rockGap.x-.014,y:rockGap.y+.012};
+ case SLEEPER:return creviceEntrance(s);
  case REDTAIL:return woodDestination(s,seed,true);
  case DOJO:return {x:sandBed.x+.026*offset,y:sandBed.y+.03*offset};
  case PANDA_CORY:return {x:sandBed.x+.016*Math.sin(t*.18),y:sandBed.y+.014*Math.cos(t*.18)};
@@ -47,7 +47,7 @@ function bottomDestination(s,seed,hour){
   return {x:sandBed.x+.035*Math.sin(step*1.7),y:sandBed.y+.019*Math.cos(step*1.7)};
  }
  case STERLET:return {x:sandBed.x+.05*Math.sin(t*.15),y:sandBed.y+.024*Math.sin(t*.30)};
- case KUHLI:return hour>=7&&hour<19?rockGap:null;
+ case KUHLI:return hour>=7&&hour<19?creviceEntrance(s):null;
  case PLECO:return woodDestination(s,seed,false);
  default:return null;
  }
@@ -94,9 +94,18 @@ function drawHabitatSprite(c,image,site,w,h,angle){
  c.drawImage(image,-w/2,-h/2,w,h);c.restore();
 }
 const driftwood={types:[PLECO,REDTAIL],image:woodSprite,site:sunkenWood,w:94,h:33,angle:.25};
+const crevice={types:[KUHLI,SLEEPER],image:creviceSprite,site:rockGap,w:66,h:45,angle:-.28};
+const creviceRadius=Math.hypot(crevice.w,crevice.h)*.5;
+function creviceEntrance(s){
+ const ux=Math.cos(crevice.angle),uy=Math.sin(crevice.angle);
+ const along=(s.x-rockGap.x)*width*ux+(s.y-rockGap.y)*height*uy;
+ const side=along<0?-1:1;
+ const offset=side*(creviceRadius+bodyRadius(s)+4);
+ return {x:rockGap.x+ux*offset/width,y:rockGap.y+uy*offset/height};
+}
 const pondStructures=[
  {types:[BASKING_TURTLE],image:baskingSprite,site:baskingStone,w:90,h:46,angle:-.24},
- {types:[KUHLI,SLEEPER],image:creviceSprite,site:rockGap,w:66,h:45,angle:-.28},
+ crevice,
  driftwood
 ];
 // A capsule follows the long axis of the drawn log, including its rounded ends.
