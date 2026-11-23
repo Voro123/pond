@@ -180,7 +180,22 @@ function steer(s,dt,i){
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
- const site=!response&&!partner&&!meal?(specialDestination(s,item,g,cycle)||(s.fish.habitat==='reef'?reefDestination(s,seed,hour):bottomDestination(s,seed,hour))):null;
+ const canVisit=!response&&!partner&&!meal&&!wave;
+ const special=canVisit&&specialDestination(s,item,g,cycle);
+ let site=canVisit&&(special||(s.fish.habitat==='reef'?reefDestination(s,seed,hour):bottomDestination(s,seed,hour)));
+ // Give the occupant room and cruise past it before trying this station again.
+ if(site&&!special&&!site.host&&s.fish.kind==='鱼类'){
+  const distance=Math.hypot((site.x-s.x)*width,(site.y-s.y)*height);
+  if(!(s.siteRetry>elapsed)&&distance<Math.max(45,s.length*.7)&&swimmers.some(o=>
+   o!==s&&o.speed<3&&Math.hypot((o.x-s.x)*width,(o.y-s.y)*height)<Math.max(22,s.length*.3)
+   &&Math.hypot((o.x-site.x)*width,(o.y-site.y)*height)<distance)){
+   s.siteRetry=elapsed+10+seed*6;
+   const away=Math.atan2(hy-site.y*height,hx-site.x*width)+(seed<.5?-.85:.85);
+   const x=s.x+Math.cos(away)*180/width,y=s.y+Math.sin(away)*180/height;
+   s.target=waterPoint(x,y,s.fish.habitat)?{x,y}:{x:bank+.5,y:.5};s.turnIn=12;
+  }
+  if(s.siteRetry>elapsed){site=null;turnHome=false;activityScale=Math.max(.85,activityScale);}
+ }
  let foodTarget=meal;
  if(type===PEA_PUFFER&&meal&&!partner&&dist<65){
   if(s.inspectBatch!==meal.batch){s.inspectBatch=meal.batch;s.inspectStart=elapsed;}
@@ -223,31 +238,29 @@ function steer(s,dt,i){
    }
  }
  // Limit the combined avoidance from a crowd so it cannot reverse a fish's course.
- let avoidX=0,avoidY=0,stationOccupied=false;
+ let avoidX=0,avoidY=0;
  for(const other of swimmers){
   if(other===s||other===site?.host||partner&&(type===BITTERLING||spawningBeds[type]))continue;
   const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);
-  if(site===target&&!site.host&&other.speed<3&&d<Math.max(16,s.length*.25)
-   &&Math.hypot((other.x-target.x)*width,(other.y-target.y)*height)<norm)stationOccupied=true;
   if(d>0&&d<65){avoidX+=dx/d*(1-d/65);avoidY+=dy/d*(1-d/65);}
  }
  const avoidance=.8/Math.max(1,Math.hypot(avoidX,avoidY));
  vx+=avoidX*avoidance;vy+=avoidY*avoidance;
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
- const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
+ const heading=rockDetour(s,Math.atan2(vy,vx),target===s.target?null:target,seed);
+ const diff=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
  const restRadius=shallowRestRadius[type];
  const homing=turnHome&&!site&&!partner&&!meal&&!response&&!wave;
  const approaching=site||partner||wave||response||meal||homing;
  const precisionTurn=meal||wave||response||restRadius&&site||partner;
- const turnSpeed=precisionTurn?Math.max(65,s.speed):s.speed;
+ const turnSpeed=precisionTurn||s.passingRock||s.siteRetry>elapsed?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  const restingAtSite=(site===target&&!site.host||homing)&&norm<(restRadius||(homing?42:12));
  // A hovering fish can adjust a short distance to a nearby station without a U-turn.
- const settling=!precisionTurn&&(homing||site===target&&!site.host)&&norm<Math.max(32,s.length*.65);
- const holding=restingAtSite||settling&&stationOccupied;
+ const settling=!s.passingRock&&!precisionTurn&&(homing||site===target&&!site.host)&&norm<Math.max(32,s.length*.65);
  const previousAngle=s.angle;
  if(restingAtSite||settling)s.angular=0;
  else s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));
@@ -338,7 +351,7 @@ function steer(s,dt,i){
   speed*=Math.max(precisionTurn?0:.24,Math.cos(diff));
  }
  if(homing)speed=Math.min(speed,norm);
- if(holding)s.speed=0;
+ if(restingAtSite)s.speed=0;
  else s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
  // Positions track the mouth for feeding. Move it around a pivot inside the body on turns.
  const pivot=Math.min(s.length*.34,norm*.4);

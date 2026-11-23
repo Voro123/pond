@@ -1,6 +1,29 @@
 "use strict";
 // Short-lived shoals use a shared snapshot so each fish sees the same neighbours.
 let shoalTick=0,shoalInvite=4;
+let visibleRocks=[];
+let reefOutcrop;
+const spawningStone={site:spawningBeds[RAM],w:56};
+function rockDetour(s,angle,destination,seed){
+ const dx=Math.cos(angle),dy=Math.sin(angle);
+ let nearest=null,passingSide=0,best=Math.max(95,s.length*1.25),heading=angle;
+ for(const rock of visibleRocks){
+  if(Boolean(rock.reef)!==(s.fish.habitat==='reef'))continue;
+  const rx=(rock.site.x-s.x)*width,ry=(rock.site.y-s.y)*height;
+  const radius=rock.w*.5+Math.max(9,s.length*.12);
+  if(destination&&Math.hypot((rock.site.x-destination.x)*width,(rock.site.y-destination.y)*height)<radius)continue;
+  const ahead=rx*dx+ry*dy,cross=rx*dy-ry*dx;
+  if(ahead<=0||ahead>=best||Math.abs(cross)>=radius)continue;
+  const side=s.passingRock===rock?s.passingSide:Math.abs(cross)>2?Math.sign(cross):(seed<.5?-1:1);
+  const tangent=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(rx,ry))))+.24;
+  const bearing=Math.atan2(ry,rx);
+  heading=bearing+side*tangent;
+  nearest=rock;passingSide=side;best=ahead;
+ }
+ s.passingSide=passingSide;
+ s.passingRock=nearest;
+ return heading;
+}
 function shoalClear(s,angle,rocks){
  const dx=Math.cos(angle),dy=Math.sin(angle),reach=Math.max(85,s.length*.85);
  for(const distance of [reach*.5,reach]){
@@ -10,24 +33,29 @@ function shoalClear(s,angle,rocks){
   const ahead=x*dx+y*dy;
   return ahead>0&&ahead<reach+radius&&Math.abs(x*dy-y*dx)<radius;
  }
- if(s.fish.habitat==='pond'&&rocks.some(r=>inPath((r.site.x-s.x)*width,(r.site.y-s.y)*height,r.w*.5)))return false;
+ if(rocks.some(r=>Boolean(r.reef)===(s.fish.habitat==='reef')&&inPath((r.site.x-s.x)*width,(r.site.y-s.y)*height,r.w*.5)))return false;
  return !swimmers.some(o=>o!==s&&o.shoal!==s.shoal&&o.fish.habitat===s.fish.habitat&&
   inPath((o.x-s.x)*width,(o.y-s.y)*height,Math.max(14,o.length*.18)));
 }
 function updateShoals(){
  if(elapsed<shoalTick)return;
  shoalTick=elapsed+.3;
- const rocks=pondStructures.filter(r=>swimmers.some(s=>r.types.includes(s.type)));
+ visibleRocks=pondStructures.filter(r=>swimmers.some(s=>r.types.includes(s.type)));
+ if(garden.bedBroods?.[RAM]||swimmers.some(s=>s.type===RAM))visibleRocks.push(spawningStone);
+ if(garden.reef){
+  reefOutcrop??={site:reefPoint(.181,.199),w:170,reef:true};
+  visibleRocks.push(reefOutcrop);
+ }
  const groups=new Set(swimmers.map(s=>s.shoal).filter(Boolean));
  for(const group of groups){
   const members=swimmers.filter(s=>s.shoal===group&&s.freeSwimming);
-  const blocked=members.some(s=>!shoalClear(s,s.angle,rocks));
+  const blocked=members.some(s=>!shoalClear(s,s.angle,visibleRocks));
   if(blocked||members.length<3||group.until<=elapsed){
    for(const [i,s] of members.entries()){
     s.shoalReady=elapsed+8+Math.random()*8;
     if(!blocked)continue;
     const side=i%2?-1:1,spread=.55+i*.18;
-    const offset=[side*spread,-side*spread,side*1.7,-side*1.7,Math.PI].find(a=>shoalClear(s,s.angle+a,rocks));
+    const offset=[side*spread,-side*spread,side*1.7,-side*1.7,Math.PI].find(a=>shoalClear(s,s.angle+a,visibleRocks));
     s.scatterAngle=s.angle+(offset??Math.PI);s.scatterUntil=elapsed+2.8;
    }
    for(const s of members)s.shoal=null;
