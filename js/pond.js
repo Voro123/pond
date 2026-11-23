@@ -211,10 +211,13 @@ function steer(s,dt,i){
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
  const restRadius=shallowRestRadius[type];
- const turnSpeed=site||partner||wave||response||inspecting||(type===STRIPED_KILLIFISH||restRadius)&&meal?Math.max(65,s.speed):s.speed;
+ const homing=turnHome&&!site&&!partner&&!meal&&!response&&!wave;
+ const approaching=site||partner||wave||response||meal||homing;
+ const turnSpeed=approaching?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
- const restingAtSite=site&&restRadius&&norm<restRadius;
+ const restingAtSite=(site===target&&!site.host||homing)&&norm<(restRadius||8);
+ const previousAngle=s.angle;
  if(restingAtSite)s.angular=0;
  else s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));
  s.angle+=s.angular*dt;
@@ -298,10 +301,14 @@ function steer(s,dt,i){
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
- if(restRadius&&(site||meal)&&!partner)speed*=Math.max(0,Math.cos(diff));
+ if(approaching&&norm<Math.max(65,s.length)&&!wave)speed*=Math.max(0,Math.cos(diff));
+ if(homing)speed=Math.min(speed,norm);
  if(restingAtSite)s.speed=0;
  else s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
- const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
+ // Positions track the mouth for feeding. Move it around a pivot inside the body on turns.
+ const pivot=Math.min(s.length*.34,norm*.4);
+ const nextX=s.x+(Math.cos(s.angle)*s.speed*dt+pivot*(Math.cos(s.angle)-Math.cos(previousAngle)))/width;
+ const nextY=s.y+(Math.sin(s.angle)*s.speed*dt+pivot*(Math.sin(s.angle)-Math.sin(previousAngle)))/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
  if(meal&&foodTarget===meal&&!handling&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
@@ -392,11 +399,7 @@ function drawFish(s){
    ctx.globalAlpha=s.camouflage*contrast;ctx.drawImage(reef,0,-h*.5,s.length,h);
   }
   ctx.restore();}
- else if(s.type===MORAY&&s.speciesAction){
-  // The head projects from the crevice while the long body stays in shade.
-  ctx.save();ctx.beginPath();ctx.arc(s.x*width,s.y*height,Math.max(12,s.length*.39),0,2*Math.PI);ctx.clip();
-  drawContinuousBody(ctx,s,img,h);ctx.restore();
- }else drawContinuousBody(ctx,s,img,h);
+ else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
  drawShallowAction(ctx,s);drawReefDetail(ctx,s);
  if(s.activity==='清理产卵面'||spawningBeds[s.type]&&s.speciesAction){
