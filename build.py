@@ -1,5 +1,6 @@
 """Rebuild the local texture libraries and the offline edition with python3 build.py."""
 import base64
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -33,11 +34,21 @@ def build():
     pack += library("debrisTextures", sorted(life.glob("debris-*.webp")))
     pack += f'const deckTexture="{texture(life / "cedar.webp")}";\n'
     (ASSETS / "specimens.js").write_text(pack)
-    page = (ROOT / "index.html").read_text()
+    entry = ROOT / "index.html"
+    source = entry.read_text()
+    script_tag = re.compile(r'<script src="([^"?]+)(?:\?v=[0-9a-f]+)?"></script>')
+
+    def version_script(match):
+        path = match[1]
+        version = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()[:16]
+        return f'<script src="{path}?v={version}"></script>'
+
+    page = script_tag.sub(version_script, source)
+    if page != source:
+        entry.write_text(page)
     css = (ROOT / "style.css").read_text().replace("url(assets/garden.webp)", "none")
     page = page.replace('<link rel="stylesheet" href="style.css">', f"<style>{css}</style>")
-    page = re.sub(r'<script src="([^"]+)"></script>',
-                  lambda match: "<script>" + (ROOT / match[1]).read_text() + "</script>", page)
+    page = script_tag.sub(lambda match: "<script>" + (ROOT / match[1]).read_text() + "</script>", page)
     (ROOT / "镜水庭.html").write_text(page)
 
 
