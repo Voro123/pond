@@ -31,12 +31,17 @@ function sizeCanvas(){
 }
 function splash(x,y,power=1){ripples.push({x,y,power,age:0});if(ripples.length>36)ripples.shift();if(power>.13)waterSound(power);}
 function locateFish(id){const s=swimmers.find(s=>s.fish.id===id);if(s)placeCamera(s.x*width,s.y*height);}
+// Signed clearance to the same shoreline used for picking water and steering, in world pixels.
+function bankClearance(wx,wy,zone){
+ const x=wx-zoneStart(zone),reef=zone==='reef',slope=reef?.8:.68;
+ const corner=(x+wy*slope*width/height-(reef?.19:.33)*width)/Math.hypot(1,slope*width/height);
+ const edge=Math.min(x-(reef?.03:.045)*width,.98*width-x,wy-(reef?.03:.025)*height,(reef?.975:.98)*height-wy,corner);
+ if(reef)return edge;
+ return Math.min(edge,Math.max(x-.16*width,.69*height-wy),Math.max(.75*width-x,wy-.22*height));
+}
 function waterPoint(x,y,required){
  const zone=zoneAt(x*width);
- if(!zone||(required&&required!==zone))return false;
- x-=zoneStart(zone)/width;
- if(zone==='reef')return x>.03&&x<.98&&y>.03&&y<.975&&x+.8*y>.19;
- return x>.045&&x<.98&&y>.025&&y<.98&&x+.68*y>.33&&!(x<.16&&y>.69)&&!(x>.75&&y<.22);
+ return Boolean(zone&&(!required||required===zone)&&bankClearance(x*width,y*height,zone)>0);
 }
 const starts=[[.43,.47,2.38],[.58,.37,.9],[.29,.58,-.85],[.56,.68,-2.5],[.36,.32,1.6],[.43,.73,-.45]];
 const SPINE_SEGMENTS=36, TENCH=12;
@@ -248,7 +253,8 @@ function steer(s,dt,i){
  vx+=avoidX*avoidance;vy+=avoidY*avoidance;
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
- const heading=rockDetour(s,Math.atan2(vy,vx),target===s.target?null:target,seed);
+ const habitatSite=site||(partner&&spawningBeds[type])||(s.retreatUntil>elapsed&&response?.target);
+ const heading=rockDetour(s,Math.atan2(vy,vx),habitatSite,seed);
  const diff=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
  const restRadius=shallowRestRadius[type];
@@ -362,6 +368,7 @@ function steer(s,dt,i){
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
  if(meal&&foodTarget===meal&&!handling&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  poseFish(s,dt);
+ clearBodyObstacles(s,dt);
  s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[SPINE_SEGMENTS];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
 }
 function poseFish(s,dt){

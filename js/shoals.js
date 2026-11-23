@@ -4,25 +4,86 @@ let shoalTick=0,shoalInvite=4;
 let visibleRocks=[];
 let reefOutcrop;
 const spawningStone={site:spawningBeds[RAM],w:56};
-function rockDetour(s,angle,destination,seed){
- const dx=Math.cos(angle),dy=Math.sin(angle);
- let nearest=null,passingSide=0,best=Math.max(95,s.length*1.25),heading=angle;
+// The renderer shears vertical texture strips along the spine. Half the sprite
+// height bounds fins as well as the trunk, including during a tail beat.
+function bodyRadius(s){
+ const aspect=s.sprite.naturalWidth?s.sprite.naturalHeight/s.sprite.naturalWidth:.48;
+ return s.length*aspect*.5;
+}
+function rockDetour(s,angle,habitatSite,seed){
+ const dx=Math.cos(angle),dy=Math.sin(angle),halfWidth=bodyRadius(s);
+ let nearest=null,best=Math.max(100,s.length*1.5),heading=angle;
+ s.accessRock=null;
  for(const rock of visibleRocks){
   if(Boolean(rock.reef)!==(s.fish.habitat==='reef'))continue;
   const rx=(rock.site.x-s.x)*width,ry=(rock.site.y-s.y)*height;
-  const radius=rock.w*.5+Math.max(9,s.length*.12);
-  if(destination&&Math.hypot((rock.site.x-destination.x)*width,(rock.site.y-destination.y)*height)<radius)continue;
+  const radius=rock.w*.5+halfWidth+8;
+  if(habitatSite&&(rock.reef||rock.types?.includes(s.type)||rock===spawningStone&&s.type===RAM)
+   &&(rock===driftwood||Math.hypot((rock.site.x-habitatSite.x)*width,(rock.site.y-habitatSite.y)*height)<rock.w*.65)){
+   s.accessRock=rock;continue;
+  }
+  // Keep the chosen course until the tail has passed the obstacle as well.
+  if(rock===s.passingRock){
+   const tail=s.bones[SPINE_SEGMENTS];
+   const projection=(tail.x-rock.site.x*width)*Math.cos(s.passAngle)+(tail.y-rock.site.y*height)*Math.sin(s.passAngle);
+   if(projection<radius&&Math.hypot(rx,ry)<2*s.length+radius+100)return s.passAngle;
+  }
   const ahead=rx*dx+ry*dy,cross=rx*dy-ry*dx;
   if(ahead<=0||ahead>=best||Math.abs(cross)>=radius)continue;
-  const side=s.passingRock===rock?s.passingSide:Math.abs(cross)>2?Math.sign(cross):(seed<.5?-1:1);
-  const tangent=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(rx,ry))))+.24;
-  const bearing=Math.atan2(ry,rx);
-  heading=bearing+side*tangent;
-  nearest=rock;passingSide=side;best=ahead;
+  const side=Math.abs(cross)>2?Math.sign(cross):(seed<.5?-1:1);
+  const tangent=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(rx,ry))))+.19;
+  heading=Math.atan2(ry,rx)+side*tangent;
+  nearest=rock;best=ahead;
  }
- s.passingSide=passingSide;
- s.passingRock=nearest;
+ s.passingRock=nearest;s.passAngle=heading;
  return heading;
+}
+function slideBody(s,ox,oy){
+ s.x+=ox/width;s.y+=oy/height;
+ for(const bone of s.bones){bone.x+=ox;bone.y+=oy;}
+}
+function clearBodyObstacles(s,dt){
+ const margin=bodyRadius(s)+s.length/(2*SPINE_SEGMENTS);
+ const maxSlide=dt*(100+s.speed+1.5*s.length*Math.abs(s.angular));
+ for(const rock of visibleRocks){
+  if(rock===s.accessRock&&rock!==driftwood||Boolean(rock.reef)!==(s.fish.habitat==='reef'))continue;
+  const x=rock.site.x*width,y=rock.site.y*height;
+  // The half-segment margin covers the space between sampled spine points.
+  if(Math.hypot(s.x*width-x,s.y*height-y)>s.length+rock.w*.5+margin)continue;
+  const radius=(rock===driftwood?rock.h:rock.w)*.5+margin;
+  let nx=0,ny=0,min=radius*radius;
+  for(const bone of s.bones){
+   let dx=bone.x-x,dy=bone.y-y;
+   if(rock===driftwood){
+    const axis=woodContact(dx,dy);dx-=axis.x;dy-=axis.y;
+   }
+   const d=dx*dx+dy*dy;
+   if(d<min){min=d;nx=dx;ny=dy;}
+  }
+  if(min>=radius*radius)continue;
+  const distance=Math.sqrt(min);
+  const angle=distance>.1?Math.atan2(ny,nx):s.angle+Math.PI/2;
+  // Slide the complete pose together. Ease out if a newly visible prop starts inside it.
+  const push=Math.min(radius-distance,maxSlide);
+  slideBody(s,Math.cos(angle)*push,Math.sin(angle)*push);
+ }
+ const zone=s.fish.habitat;
+ if(bankClearance(s.x*width,s.y*height,zone)>s.length+margin)return;
+ // At a shoreline corner the belly and tail can touch different banks.
+ for(let pass=0;pass<3;pass++){
+  let clearance=margin,contact;
+  for(const bone of s.bones){
+   const d=bankClearance(bone.x,bone.y,zone);
+   if(d<clearance){clearance=d;contact=bone;}
+  }
+  if(!contact||margin-clearance<.01)break;
+  const {x,y}=contact;
+  const nx=bankClearance(x+1,y,zone)-bankClearance(x-1,y,zone);
+  const ny=bankClearance(x,y+1,zone)-bankClearance(x,y-1,zone);
+  const push=Math.min(margin-clearance,maxSlide)/Math.max(.01,Math.hypot(nx,ny));
+  slideBody(s,nx*push,ny*push);
+  if(margin-clearance>maxSlide)break;
+ }
 }
 function shoalClear(s,angle,rocks){
  const dx=Math.cos(angle),dy=Math.sin(angle),reach=Math.max(85,s.length*.85);

@@ -39,7 +39,7 @@ function bottomDestination(s,seed,hour){
   if(hour<7||hour>=19)return {x:baskingStone.x+.055,y:baskingStone.y-.008};
   return t%46<30?baskingStone:{x:baskingStone.x+.042,y:baskingStone.y-.014};
  case SLEEPER:return {x:rockGap.x-.014,y:rockGap.y+.012};
- case REDTAIL:return {x:sunkenWood.x+.032*Math.cos(t*.22),y:sunkenWood.y+.02*Math.sin(t*.22)};
+ case REDTAIL:return woodDestination(s,seed,true);
  case DOJO:return {x:sandBed.x+.026*offset,y:sandBed.y+.03*offset};
  case PANDA_CORY:return {x:sandBed.x+.016*Math.sin(t*.18),y:sandBed.y+.014*Math.cos(t*.18)};
  case GUDGEON:{
@@ -48,7 +48,7 @@ function bottomDestination(s,seed,hour){
  }
  case STERLET:return {x:sandBed.x+.05*Math.sin(t*.15),y:sandBed.y+.024*Math.sin(t*.30)};
  case KUHLI:return hour>=7&&hour<19?rockGap:null;
- case PLECO:return {x:sunkenWood.x+.012*Math.sin(t*.12),y:sunkenWood.y+.005*Math.sin(t*.12)};
+ case PLECO:return woodDestination(s,seed,false);
  default:return null;
  }
 }
@@ -59,7 +59,10 @@ function bottomAction(s,site){
  case STERLET:return d<55&&s.speed>4;
  case GUDGEON:return d>8&&d<45&&s.speed>3;
  case PANDA_CORY:return d<39&&swimmers.some(o=>o!==s&&o.type===PANDA_CORY&&Math.hypot((o.x-s.x)*width,(o.y-s.y)*height)<85);
- case REDTAIL:return d<43&&s.speed>4;
+ case REDTAIL:{
+  const dx=(s.x-sunkenWood.x)*width,dy=(s.y-sunkenWood.y)*height,axis=woodContact(dx,dy);
+  return s.speed>4&&Math.hypot(dx-axis.x,dy-axis.y)<driftwood.h*.5+bodyRadius(s)+43;
+ }
  case SLEEPER:return false;
  case RAM:case ANGEL:return d<30;
  case BASKING_TURTLE:return site===baskingStone&&d<shallowRestRadius[s.type];
@@ -90,11 +93,28 @@ function drawHabitatSprite(c,image,site,w,h,angle){
  c.globalAlpha*=image===baskingSprite?.83:.62;
  c.drawImage(image,-w/2,-h/2,w,h);c.restore();
 }
+const driftwood={types:[PLECO,REDTAIL],image:woodSprite,site:sunkenWood,w:94,h:33,angle:.25};
 const pondStructures=[
  {types:[BASKING_TURTLE],image:baskingSprite,site:baskingStone,w:90,h:46,angle:-.24},
  {types:[KUHLI,SLEEPER],image:creviceSprite,site:rockGap,w:66,h:45,angle:-.28},
- {types:[PLECO,REDTAIL],image:woodSprite,site:sunkenWood,w:94,h:33,angle:.25}
+ driftwood
 ];
+// A capsule follows the long axis of the drawn log, including its rounded ends.
+function woodContact(dx,dy){
+ const ux=Math.cos(driftwood.angle),uy=Math.sin(driftwood.angle);
+ const end=(driftwood.w-driftwood.h)*.5;
+ const along=clamp(dx*ux+dy*uy,-end,end);
+ return {x:along*ux,y:along*uy};
+}
+function woodDestination(s,seed,patrol){
+ const dx=(s.x-sunkenWood.x)*width,dy=(s.y-sunkenWood.y)*height;
+ let angle=Math.atan2(dy,dx);
+ if(patrol)angle+=(seed<.5?-1:1)*.95;
+ const ux=Math.cos(angle),uy=Math.sin(angle);
+ const edge=woodContact(ux*driftwood.w,uy*driftwood.w);
+ const clearance=driftwood.h*.5+bodyRadius(s)+(patrol?12:0);
+ return {x:sunkenWood.x+(edge.x+ux*clearance)/width,y:sunkenWood.y+(edge.y+uy*clearance)/height};
+}
 function drawBottomHabitat(c){
  const sand=swimmers.some(s=>[DOJO,KUHLI,PANDA_CORY,GUDGEON,STERLET].includes(s.type));
  if(sand){
