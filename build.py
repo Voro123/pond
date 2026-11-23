@@ -29,6 +29,8 @@ def build():
     pack += f'const reefTexture="{texture(ASSETS / "reef.webp")}";\n'
     pack += library("fieldTextures", views)
     life = ASSETS / "pondlife"
+    habitat = ["driftwood", "basking-rock", "rock-gap", "spawning-stone", "spawning-leaf"]
+    pack += library("habitatTextures", [life / f"{name}.webp" for name in habitat])
     pack += library("frogTextures", sorted(life.glob("frog-*.webp")))
     pack += f'const neriteTexture="{texture(life / "nerite.webp")}";\n'
     pack += library("debrisTextures", sorted(life.glob("debris-*.webp")))

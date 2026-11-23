@@ -79,11 +79,18 @@ function handleShallowFood(s,meal,d,angle,dt){
  }
  return held<(isGourami(s.type)?.85:1.1);
 }
+const [woodSprite,baskingSprite,creviceSprite,stoneSprite,leafSprite]=habitatTextures.map(src=>{
+ const image=new Image();image.src=src;return image;
+});
+function drawHabitatSprite(c,image,site,w,h,angle){
+ if(!image.naturalWidth)return;
+ c.save();c.translate(site.x*width,site.y*height);c.rotate(angle);
+ c.globalAlpha*=image===baskingSprite?.83:.62;
+ c.drawImage(image,-w/2,-h/2,w,h);c.restore();
+}
 function drawBottomHabitat(c){
  if(swimmers.some(s=>s.type===BASKING_TURTLE)){
-  c.save();c.translate(baskingStone.x*width,baskingStone.y*height);
-  const grad=c.createLinearGradient(0,-20,0,20);grad.addColorStop(0,'#92937a');grad.addColorStop(1,'#545d4c');c.fillStyle=grad;
-  c.beginPath();c.ellipse(0,0,43,19,-.24,0,2*Math.PI);c.fill();c.restore();
+  drawHabitatSprite(c,baskingSprite,baskingStone,90,46,-.24);
  }
  const sand=swimmers.some(s=>[DOJO,KUHLI,PANDA_CORY,GUDGEON,STERLET].includes(s.type));
  if(sand){
@@ -92,30 +99,21 @@ function drawBottomHabitat(c){
   c.fillStyle=wash;c.fillRect(-1,-1,2,2);c.restore();
  }
  if(swimmers.some(s=>s.type===KUHLI||s.type===SLEEPER)){
-  c.save();c.translate(rockGap.x*width,rockGap.y*height);c.rotate(-.28);
-  for(const [x,y,rx,ry] of [[-2,-12,30,10],[5,12,24,9]]){
-   const shade=c.createLinearGradient(0,y-ry,0,y+ry);shade.addColorStop(0,'#858671');shade.addColorStop(1,'#424f48');
-   c.fillStyle=shade;c.beginPath();c.ellipse(x,y,rx,ry,-.1,0,2*Math.PI);c.fill();
-  }
-  c.restore();
+  drawHabitatSprite(c,creviceSprite,rockGap,66,45,-.28);
  }
  if(swimmers.some(s=>s.type===PLECO||s.type===REDTAIL)){
-  c.save();c.translate(sunkenWood.x*width,sunkenWood.y*height);c.rotate(.25);c.lineCap='round';
-  for(const [w,color,y] of [[18,'#453e2f',0],[11,'#706048',-2],[2,'#918064',-5],[2,'#4f4637',2]]){
-   c.lineWidth=w;c.strokeStyle=color;c.beginPath();c.moveTo(-39,y+3);c.quadraticCurveTo(-6,y-8,39,y+2);c.stroke();
-  }
-  c.restore();
+  drawHabitatSprite(c,woodSprite,sunkenWood,94,33,.25);
  }
  for(const [key,site] of Object.entries(spawningBeds)){
   const type=Number(key),brood=garden.bedBroods?.[type];
   if(!brood&&!swimmers.some(s=>s.type===type))continue;
+  if(type===ANGEL)drawHabitatSprite(c,leafSprite,site,71,24,-.45);
+  else drawHabitatSprite(c,stoneSprite,site,56,30,-.45);
+  if(!brood)continue;
   c.save();c.translate(site.x*width,site.y*height);c.rotate(-.45);
-  c.beginPath();c.fillStyle=type===ANGEL?'#697f52':'#827d69';
-  c.ellipse(0,0,type===ANGEL?32:26,type===ANGEL?9:15,0,0,2*Math.PI);c.fill();
-  if(type===ANGEL){c.strokeStyle='#9d9e70';c.beginPath();c.moveTo(-35,0);c.lineTo(26,0);c.stroke();}
-  if(brood){c.fillStyle='#dac695';for(let i=0;i<14;i++){
+  c.fillStyle='#dac695';for(let i=0;i<14;i++){
    c.beginPath();c.ellipse(i%7*2.7-8,Math.floor(i/7)*3-2,1.1,1.5,0,0,2*Math.PI);c.fill();
-  }}
+  }
   c.restore();
  }
 
