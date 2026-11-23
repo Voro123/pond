@@ -13,6 +13,7 @@ function matingTarget(s){
  const pair=pairings.get(s.fish.habitat);
  if(!pair||!pair.ids.includes(s.fish.id))return null;
  const other=swimmers.find(o=>o.fish.id===pair.ids.find(id=>id!==s.fish.id));
+ if(spawningBeds[s.type])return spawningBeds[s.type];
  if(s.type===BITTERLING)return musselSite;
  return other?{x:other.x,y:other.y}:null;
 }
@@ -29,10 +30,13 @@ function hatchFry(pair,site,now){
  const type=parents[Math.floor(Math.random()*2)].type;
  const origin=[a,b].map(f=>({id:f.id,type:garden.fish[f.id].type}));
  const seed=Math.max(0,Math.min(.999999,(parents[0].seed+parents[1].seed)/2+(Math.random()-.5)*.30));
- if(type===BITTERLING&&garden.musselBrood)return false;
+ if(type===BITTERLING&&garden.musselBrood||garden.bedBroods?.[type])return false;
  for(const p of parents)p.restUntil=now+breedingRest;
- if(type===BANGGAI||type===BITTERLING){
+ if(type===BANGGAI||type===BITTERLING||spawningBeds[type]){
   const brood={type,parents:origin,seed,due:now+45000,laid:now};
+  if(spawningBeds[type]){
+   (garden.bedBroods??={})[type]=brood;record(breeds[type].breed+'在'+(type===ANGEL?'宽叶':'平石')+'上产下了卵。');save();return true;
+  }
   if(type===BANGGAI)parents.find(p=>p.sex==='雄').brood=brood;else garden.musselBrood=brood;
   record(type===BANGGAI?'邦盖天竺鲷雄鱼含住了这一窝卵。':'彩石鲋在浅滩河蚌内产下了卵。');save();return true;
  }
@@ -50,7 +54,8 @@ async function releaseBroods(now){
  if(releasePending)return;
  const musselReady=garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY;
  const fatherReady=Object.values(garden.fish).some(p=>p.brood?.due<=now&&p.deathAt>now)&&localStock('reef').length<CAPACITY;
- if(!musselReady&&!fatherReady)return;
+ const bedReady=Object.values(garden.bedBroods||{}).some(b=>b.due<=now)&&localStock('pond').length<CAPACITY;
+ if(!musselReady&&!fatherReady&&!bedReady)return;
  releasePending=true;
  const created=garden.created;
  const commit=()=>{
@@ -58,11 +63,14 @@ async function releaseBroods(now){
   garden=latest;rebuildRoster();let changed=false;
   function release(b,site){
    addFry(b.type,b.parents,b.seed,site,now);discover(garden,b.type);
-   record(b.type===BANGGAI?'一尾邦盖天竺鲷幼鱼从父鱼嘴边游出。':'一尾彩石鲋幼鱼从河蚌开口游出。');
+   record(b.type===BANGGAI?'一尾邦盖天竺鲷幼鱼从父鱼嘴边游出。':b.type===BITTERLING?'一尾彩石鲋幼鱼从河蚌开口游出。':'一尾'+breeds[b.type].breed+'幼鱼在产卵处孵化。');
    changed=true;rebuildRoster();
   }
   if(garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY){
    release(garden.musselBrood,{x:musselSite.x,y:musselSite.y});delete garden.musselBrood;
+  }
+  for(const [key,brood] of Object.entries(garden.bedBroods||{})){
+   if(brood.due<=now&&localStock('pond').length<CAPACITY){release(brood,spawningBeds[key]);delete garden.bedBroods[key];}
   }
   for(const s of swimmers){
    const p=garden.fish[s.fish.id];
@@ -91,7 +99,9 @@ function checkBreeding(now=Date.now()){
    const [a,b]=pair.ids.map(id=>swimmers.find(s=>s.fish.id===id));
    if(!a||!b||now-pair.start>90000||!eligiblePair(a.fish,b.fish,now)){pairings.delete(zone);continue;}
    const nearHost=a.type!==BITTERLING||!garden.musselBrood&&[a,b].every(s=>Math.hypot((s.x-musselSite.x)*width,(s.y-musselSite.y)*height)<32);
-   if(nearHost&&now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
+   const bed=spawningBeds[a.type],nearBed=!bed||!garden.bedBroods?.[a.type]&&[a,b].every(s=>Math.hypot((s.x-bed.x)*width,(s.y-bed.y)*height)<30);
+   if(bed&&nearBed)pair.cleanSince??=now;else delete pair.cleanSince;
+   if(nearHost&&nearBed&&(!bed||now-pair.cleanSince>=3200)&&now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
     pairings.delete(zone);void settlePair(pair,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
    }
    continue;
@@ -187,6 +197,7 @@ setInterval(()=>{
 // Fixed scene landmarks use the same world coordinates as the swimmers.
 const musselSite={x:.34,y:.69};
 function specialDestination(s,item,g,cycle){
+ if(garden.bedBroods?.[s.type]?.parents.some(p=>p.id===s.fish.id))return spawningBeds[s.type];
  if(s.type===BETTA&&item.sex==='雄'&&g.maturity>=1&&(!item.nest||cycle<13)){
   return item.nest||{x:.23+.07*item.seed,y:.65+.03*item.seed};
  }

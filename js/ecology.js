@@ -1,9 +1,9 @@
 "use strict";
 const wildImage=new Image();wildImage.src=fieldTextures[1];
-function paintSeaStar(c){
+function paintSeaStar(c,phase=0){
  c.beginPath();
  for(let i=0;i<10;i++){
-  const a=i*Math.PI/5,r=i%2?7:20;
+  const a=i*Math.PI/5,r=i%2?7:20+1.3*Math.sin(phase+i*.7);
   c.lineTo(Math.cos(a)*r,Math.sin(a)*r);
  }
  c.closePath();c.lineJoin='round';c.lineWidth=3;c.strokeStyle='#c87a49';c.stroke();c.fillStyle='#d58b55';c.fill();
@@ -56,6 +56,11 @@ function currentVisit(now=Date.now()){
  const type=reef?(other?HERMIT_CRAB:SEA_STAR):(other?BUTTERFLY:VISITOR);
  return {type,day,start,age,...visitorKinds[type]};
 }
+const shoreLeaves=[{x:.098,y:.787},{x:.155,y:.912},{x:.088,y:.962},{x:.041,y:.875},{x:.04,y:.77}];
+function shorePerch(seed,leg){
+ const offset=Math.floor(sampleUnit(seed+'/leaves')*shoreLeaves.length);
+ return shoreLeaves[(leg+offset)%shoreLeaves.length];
+}
 function visitorState(now=Date.now()){
  const v=currentVisit(now);if(!v)return null;
  if(v.type===HERMIT_CRAB){
@@ -63,21 +68,22 @@ function visitorState(now=Date.now()){
   return {...v,x:zoneStart('reef')/width+.42+.08*Math.sin(t),y:.66+.04*Math.cos(t),heading:Math.atan2(-.04*height*Math.sin(t),.08*width*Math.cos(t)),status:step<8?'背壳漫步':'停步探沙'};
  }
  if(v.type===BUTTERFLY){
-  const cycle=Math.floor(v.age/10),step=v.age%10,t=cycle*7+Math.min(step,7);
-  const a=t*.31,b=t*.48;
-  return {...v,x:.27+.08*Math.sin(a),y:.61+.044*Math.sin(b),heading:Math.atan2(.044*.48*height*Math.cos(b),.08*.31*width*Math.cos(a)),status:step<7?'绕岸翻飞':'合翅停栖'};
+  const leg=Math.floor(v.age/10),step=v.age%10;
+  const from=shorePerch(v.start,leg),to=shorePerch(v.start,leg+1);
+  const u=Math.min(1,step/7),f=u*u*(3-2*u),arch=Math.sin(Math.PI*f);
+  return {...v,x:from.x+(to.x-from.x)*f+.015*arch*Math.sin(step*4),y:from.y+(to.y-from.y)*f-.045*arch,heading:Math.atan2((to.y-from.y)*height,(to.x-from.x)*width),status:step<7?'绕岸翻飞':'合翅停栖'};
  }
  if(v.type===SEA_STAR)return {...v,x:zoneStart('reef')/width+.45+.028*Math.sin(v.age/38),y:.68+.018*Math.cos(v.age/46),heading:.2*Math.sin(v.age/38),status:'沿浅沙觅食'};
  const leg=Math.floor(v.age/8),time=v.age%8;
- function perch(i){const key=v.start+'/'+i;return [.20+.43*sampleUnit(key+'x'),.45+.23*sampleUnit(key+'y')];}
- const [ax,ay]=perch(leg),[bx,by]=perch(leg+1);
+ const {x:ax,y:ay}=shorePerch(v.start,leg),{x:bx,y:by}=shorePerch(v.start,leg+1);
  const t=Math.min(1,time/5),f=t*t*(3-2*t);
  return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f-.045*Math.sin(Math.PI*f),heading:Math.atan2((by-ay-.045*Math.PI*Math.cos(Math.PI*f))*height,(bx-ax)*width),status:t===1?'落脚歇翅':'低飞巡猎'};
 }
 function drawVisitor(c,underwater){
  const v=visitorState();if(!v||(v.zone==='reef')!==underwater)return;
  c.save();c.translate(v.x*width,v.y*height);c.rotate(v.heading);
- if(v.type===SEA_STAR)paintSeaStar(c);
+ if(v.type===HERMIT_CRAB&&v.status==='背壳漫步')c.rotate(.06*Math.sin(v.age*5));
+ if(v.type===SEA_STAR)paintSeaStar(c,v.age*.85);
  else if(v.type===HERMIT_CRAB)paintHermitCrab(c,v.status==='背壳漫步'?2*Math.sin(v.age*5):0);
  else if(v.type===BUTTERFLY)paintButterfly(c,v.status==='绕岸翻飞'?.65+.32*Math.sin(v.age*19):.32);
  else if(wildImage.naturalWidth){c.rotate(Math.PI);c.shadowColor='#18221c77';c.shadowBlur=3;c.shadowOffsetY=v.status==='低飞巡猎'?7:2;
@@ -139,15 +145,18 @@ function drawTadpoles(dt){
   if(g.stage<3&&g.full<88)for(const a of food){if(a.kind!=='algae'||a.air>0)continue;const d=Math.hypot((m.x-a.x)*width,(m.y-a.y)*height);if(d<nearest){nearest=d;goal=a;}}
   const pivot=elapsed*.18+p.seed*7;
   let tx=m.homeX+Math.sin(pivot)*.034,ty=m.homeY+Math.cos(pivot*.8)*.037;
-  if(g.stage===3){tx=.12+Math.sin(pivot*.4)*.025;ty=.77+Math.cos(pivot*.5)*.026;}
+  if(g.stage===3){const leaf=shorePerch(id,Math.floor((elapsed+p.seed*20)/22));tx=leaf.x;ty=leaf.y;}
   if(goal){tx=goal.x;ty=goal.y;}
   const a=Math.atan2((ty-m.y)*height,(tx-m.x)*width);
   if(m.alarm<=0)m.angle+=Math.atan2(Math.sin(a-m.angle),Math.cos(a-m.angle))*Math.min(1,dt*3.1);
   let speed=m.alarm>0?46+22*p.seed:goal?30+(100-g.full)*.3:8+g.energy*.05;
   if(g.stage===3){
     const phase=(elapsed+p.seed*6)%2.6;
-    m.lift=phase<.42?Math.sin(Math.PI*phase/.42):0;
-    speed=130*m.lift;
+    const toLeaf=Math.hypot((tx-m.x)*width,(ty-m.y)*height);
+    m.lift=phase<.42&&toLeaf>3?Math.sin(Math.PI*phase/.42):0;
+    speed=Math.min(130*m.lift,toLeaf/Math.max(dt,.001));
+    if(!m.lift&&m.airborne){m.landAt=elapsed;if(m.x>.18)splash(m.x,m.y,.10);}
+    m.airborne=m.lift>0;
   }
   if(p.traits.includes('fast'))speed*=1.5;
   m.alarm-=dt;m.x+=Math.cos(m.angle)*speed*dt/width;m.y+=Math.sin(m.angle)*speed*dt/height;
@@ -166,7 +175,8 @@ function paintFrog(c,id,p,m,stage){
  traceGold(c,'frog-'+id,p.traits,m.x*width,m.y*height);
  const pulse=Math.sin(elapsed*(stage===3?1.6:3)+p.seed*8);
  c.save();c.translate(m.x*width,m.y*height-(m.lift||0)*12);c.rotate(m.angle+Math.PI+.024*pulse);
- c.scale(1+.014*pulse,1-.025*pulse);c.shadowColor='#10221a66';c.shadowBlur=2;c.shadowOffsetY=stage===3?2+(m.lift||0)*12:3;
+ const landing=stage===3&&elapsed-(m.landAt??-1)<.16?.07:0;
+ c.scale(1+.014*pulse+landing,1-.025*pulse-landing);c.shadowColor='#10221a66';c.shadowBlur=2;c.shadowOffsetY=stage===3?2+(m.lift||0)*12:3;
  c.drawImage(img,-length/2,-spriteHeight/2,length,spriteHeight);c.restore();
 }
 function drawFrogs(c){

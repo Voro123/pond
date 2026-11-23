@@ -288,6 +288,243 @@ function sceneImage(type){
  return index===undefined?breeds[type].image:fieldTextures[index];
 }
 </script><script>"use strict";
+const DOJO=9, GUDGEON=13, STERLET=14, PANDA_CORY=20, PLECO=21, KUHLI=23;
+const PEARL_GOURAMI=25, DWARF_GOURAMI=26, CHERRY_SHRIMP=57, BLUE_CRAYFISH=59;
+const SLEEPER=11, REDTAIL=24, ANGEL=27, PEA_PUFFER=30, RAM=31;
+const spawningBeds={
+ [ANGEL]:{x:.36,y:.55},[RAM]:{x:.56,y:.61}
+};
+const BASKING_TURTLE=55, CLOWNFISH=33;
+const baskingStone={x:.215,y:.69};
+const shallowHabits={
+ [BASKING_TURTLE]:['登石晒背','白天到荷岸等它爬上晒台。','它从水边慢慢爬上石面，停稳晒背，随后沿原路入水。'],
+ [NERITE]:['刮过藻膜','观察螺身后刚刚经过的石面。','爬过有藻膜的石面时，身后留下一小段浅色刮痕。'],
+ [12]:['贴底探食','在丁鱥附近的底面撒藻屑。','它贴底游近，吻部在藻屑旁轻轻拨起细沙。'],
+ [CLOWNFISH]:['退入海葵','在海葵附近的鱼身旁拨水。','水面受扰，它折返到熟悉的海葵丛里。'],
+ [SLEEPER]:['离掩体短扑','等它伏在石旁，在近处投下鱼粮。','它贴近石影停伏，饵粒落在近旁才突然短扑。'],
+ [REDTAIL]:['绕木巡界','沿沉木的两端观察它折返。','它反复沿沉木外缘巡回，转过木端后绕向另一侧。'],
+ [PEA_PUFFER]:['绕饵端详','把鱼粮撒在身旁，留意靠近前的弧线。','它从侧面绕近食粒，换一个角度才啄食。'],
+ [ANGEL]:['叶面护卵','配对后观察叶片上的卵和往返的亲鱼。','亲鱼贴近宽叶清理表面，产卵后又回到叶旁护卵。'],
+ [RAM]:['石面护卵','配对后去平石旁寻找亲鱼。','亲鱼清理平石，在石面产卵，随后留在卵旁守护。'],
+ [PEARL_GOURAMI]:['丝鳍探饵','向身前投下少量鱼粮。','它先伸出细长腹鳍碰触食粒，随后才把嘴凑近。'],
+ [DWARF_GOURAMI]:['丝鳍探饵','观察它接近食粒时的腹鳍。','丝状腹鳍先触到食物，鱼身随后跟上。'],
+ [DOJO]:['拱入软沙','留意浅沙里扬起的细砂。','它将吻部拱进软沙，身体渐渐隐入沙色。'],
+ [KUHLI]:['钻入石隙','白天去浅沙旁的两块石头之间看看。','它沿着窄缝钻进去，在石影里停留。'],
+ [PANDA_CORY]:['结伴翻砂','在浅滩养两尾熊猫鼠鱼，等它们聚到沙地。','同伴聚近时，它们贴着沙底探食，吻前扬起细沙。'],
+ [GUDGEON]:['浅底短移','在沙地等它停下，再留意下一次挪窝。','它贴底歇一阵，再短短地移向旁边的落点。'],
+ [STERLET]:['贴沙扫寻','沿着沙地观察吻部的路线。','它沿沙底来回扫寻，长吻下的触须掠过底面。'],
+ [PLECO]:['附木刮食','找到浅滩的沉木，再看它在哪一面停下。','它将口部贴在沉木表面，一点点刮过木纹。'],
+ [CHERRY_SHRIMP]:['前肢拣食','在虾的前方撒少许藻屑。','它停在藻屑旁，两侧前肢轮流拣取。'],
+ [BLUE_CRAYFISH]:['举螯持食','把鱼粮撒在螯尖附近。','它在食物旁停下，用螯夹住食粒，再把食物送到口边。']
+};
+const sandBed={x:.47,y:.65},rockGap={x:.52,y:.69},sunkenWood={x:.38,y:.63};
+function isGourami(type){return type===PEARL_GOURAMI||type===DWARF_GOURAMI;}
+function bottomDestination(s,seed,hour){
+ const t=elapsed+seed*30;
+ const offset=seed-.5;
+ switch(s.type){
+ case BASKING_TURTLE:
+  if(hour<7||hour>=19)return {x:baskingStone.x+.055,y:baskingStone.y-.008};
+  return t%46<30?baskingStone:{x:baskingStone.x+.042,y:baskingStone.y-.014};
+ case SLEEPER:return {x:rockGap.x-.014,y:rockGap.y+.012};
+ case REDTAIL:return {x:sunkenWood.x+.032*Math.cos(t*.22),y:sunkenWood.y+.02*Math.sin(t*.22)};
+ case DOJO:return {x:sandBed.x+.026*offset,y:sandBed.y+.03*offset};
+ case PANDA_CORY:return {x:sandBed.x+.016*Math.sin(t*.18),y:sandBed.y+.014*Math.cos(t*.18)};
+ case GUDGEON:{
+  const step=Math.floor(t/6);
+  return {x:sandBed.x+.035*Math.sin(step*1.7),y:sandBed.y+.019*Math.cos(step*1.7)};
+ }
+ case STERLET:return {x:sandBed.x+.05*Math.sin(t*.15),y:sandBed.y+.024*Math.sin(t*.30)};
+ case KUHLI:return hour>=7&&hour<19?rockGap:null;
+ case PLECO:return {x:sunkenWood.x+.012*Math.sin(t*.12),y:sunkenWood.y+.005*Math.sin(t*.12)};
+ default:return null;
+ }
+}
+function bottomAction(s,site){
+ if(!site||!shallowHabits[s.type])return false;
+ const d=Math.hypot((site.x-s.x)*width,(site.y-s.y)*height);
+ switch(s.type){
+ case STERLET:return d<55&&s.speed>4;
+ case GUDGEON:return d>8&&d<45&&s.speed>3;
+ case PANDA_CORY:return d<39&&swimmers.some(o=>o!==s&&o.type===PANDA_CORY&&Math.hypot((o.x-s.x)*width,(o.y-s.y)*height)<85);
+ case REDTAIL:return d<43&&s.speed>4;
+ case SLEEPER:return false;
+ case RAM:case ANGEL:return d<30;
+ case BASKING_TURTLE:return site===baskingStone&&d<14;
+ default:return d<22;
+ }
+}
+// Pause at a reachable particle long enough to show the appendages touching it.
+// Eating stays in the shared feeding path so each particle is consumed once.
+function handleShallowFood(s,meal,d,angle,dt){
+ const reach=isGourami(s.type)?Math.min(34,s.length*.45):18;
+ if(!meal||d>reach||Math.abs(angle)>1){
+  s.handling=null;return false;
+ }
+ if(s.handling?.meal!==meal)s.handling={meal,start:elapsed};
+ const held=elapsed-s.handling.start;
+ if(s.type===BLUE_CRAYFISH&&held>.45&&held<1.1){
+  const pull=1-Math.exp(-dt*4);meal.x+=(s.x-meal.x)*pull;meal.y+=(s.y-meal.y)*pull;
+ }
+ return held<(isGourami(s.type)?.85:1.1);
+}
+function drawBottomHabitat(c){
+ if(swimmers.some(s=>s.type===BASKING_TURTLE)){
+  c.save();c.translate(baskingStone.x*width,baskingStone.y*height);
+  const grad=c.createLinearGradient(0,-20,0,20);grad.addColorStop(0,'#92937a');grad.addColorStop(1,'#545d4c');c.fillStyle=grad;
+  c.beginPath();c.ellipse(0,0,43,19,-.24,0,2*Math.PI);c.fill();c.restore();
+ }
+ const sand=swimmers.some(s=>[DOJO,KUHLI,PANDA_CORY,GUDGEON,STERLET].includes(s.type));
+ if(sand){
+  c.save();c.translate(sandBed.x*width,sandBed.y*height);c.scale(130,52);
+  const wash=c.createRadialGradient(0,0,.2,0,0,1);wash.addColorStop(0,'#c4b48366');wash.addColorStop(1,'#c4b48300');
+  c.fillStyle=wash;c.fillRect(-1,-1,2,2);c.restore();
+ }
+ if(swimmers.some(s=>s.type===KUHLI||s.type===SLEEPER)){
+  c.save();c.translate(rockGap.x*width,rockGap.y*height);c.rotate(-.28);
+  for(const [x,y,rx,ry] of [[-2,-12,30,10],[5,12,24,9]]){
+   const shade=c.createLinearGradient(0,y-ry,0,y+ry);shade.addColorStop(0,'#858671');shade.addColorStop(1,'#424f48');
+   c.fillStyle=shade;c.beginPath();c.ellipse(x,y,rx,ry,-.1,0,2*Math.PI);c.fill();
+  }
+  c.restore();
+ }
+ if(swimmers.some(s=>s.type===PLECO||s.type===REDTAIL)){
+  c.save();c.translate(sunkenWood.x*width,sunkenWood.y*height);c.rotate(.25);c.lineCap='round';
+  for(const [w,color,y] of [[18,'#453e2f',0],[11,'#706048',-2],[2,'#918064',-5],[2,'#4f4637',2]]){
+   c.lineWidth=w;c.strokeStyle=color;c.beginPath();c.moveTo(-39,y+3);c.quadraticCurveTo(-6,y-8,39,y+2);c.stroke();
+  }
+  c.restore();
+ }
+ for(const [key,site] of Object.entries(spawningBeds)){
+  const type=Number(key),brood=garden.bedBroods?.[type];
+  if(!brood&&!swimmers.some(s=>s.type===type))continue;
+  c.save();c.translate(site.x*width,site.y*height);c.rotate(-.45);
+  c.beginPath();c.fillStyle=type===ANGEL?'#697f52':'#827d69';
+  c.ellipse(0,0,type===ANGEL?32:26,type===ANGEL?9:15,0,0,2*Math.PI);c.fill();
+  if(type===ANGEL){c.strokeStyle='#9d9e70';c.beginPath();c.moveTo(-35,0);c.lineTo(26,0);c.stroke();}
+  if(brood){c.fillStyle='#dac695';for(let i=0;i<14;i++){
+   c.beginPath();c.ellipse(i%7*2.7-8,Math.floor(i/7)*3-2,1.1,1.5,0,0,2*Math.PI);c.fill();
+  }}
+  c.restore();
+ }
+
+}
+function drawShallowAction(c,s){
+ const action=s.speciesAction;
+ if(!action||action!==shallowHabits[s.type]?.[0])return;
+ c.save();c.translate(s.x*width,s.y*height);c.rotate(s.angle);
+ const grain=s.handling?.meal;
+ if(grain){
+  const dx=(grain.x-s.x)*width,dy=(grain.y-s.y)*height,co=Math.cos(s.angle),si=Math.sin(s.angle);
+  const x=dx*co+dy*si,y=dy*co-dx*si;
+  c.strokeStyle=isGourami(s.type)?'#dac692':s.type===BLUE_CRAYFISH?'#5e97ac':'#c58973';
+  c.lineWidth=s.type===BLUE_CRAYFISH?2.8:1;
+  for(const side of [-1,1]){
+   const beat=Math.sin(elapsed*14+side)*2;
+   c.beginPath();c.moveTo(-s.length*.24,side*3);c.quadraticCurveTo(-3,side*(7+beat),x,y+side*1.4);c.stroke();
+  }
+ }else if(s.type===DOJO||s.type===PANDA_CORY||s.type===STERLET||s.type===TENCH){
+  for(let i=0;i<8;i++){
+   const t=(elapsed*.8+i/8)%1;c.fillStyle='rgba(211,194,149,'+(.65*(1-t))+')';
+   c.beginPath();c.arc(-t*15,Math.sin(i*2.4)*(2+12*t),1+t,0,2*Math.PI);c.fill();
+  }
+ }else if(s.type===PLECO){
+  c.strokeStyle='#b8b19091';c.beginPath();c.ellipse(1,0,3+Math.sin(elapsed*8),3,0,0,2*Math.PI);c.stroke();
+ }
+ c.restore();
+}
+
+function updateScrapeTrail(s){
+ const trail=s.scrapeTrail??=[];
+ while(trail.length&&elapsed-trail[0].at>12)trail.shift();
+ const last=trail[trail.length-1];
+ if(s.activity==='沿石刮藻'&&(!last||Math.hypot((s.x-last.x)*width,(s.y-last.y)*height)>2)){
+  trail.push({x:s.x,y:s.y,at:elapsed});
+ }
+ if(trail.length>1&&s.activity==='沿石刮藻')s.speciesAction=shallowHabits[NERITE][0];
+}
+function drawScrapeTrail(c,trail){
+ for(let i=1;i<trail.length;i++){
+  c.strokeStyle='rgba(209,207,161,'+Math.max(0,.5*(1-(elapsed-trail[i].at)/12))+')';
+  c.lineWidth=2;c.beginPath();c.moveTo(trail[i-1].x*width,trail[i-1].y*height);c.lineTo(trail[i].x*width,trail[i].y*height);c.stroke();
+ }
+}
+</script><script>"use strict";
+const BLUE_TANG=34,YELLOW_TANG=35,MANDARIN=36,LONGNOSE=37,PAJAMA=38,FIREFISH=39,DOTTYBACK=40;
+const LIONFISH=42,COWFISH=43,BOXFISH=44,BAMBOO_SHARK=45,RIBBONTAIL=46,MORAY=48,BIRD_WRASSE=50,COPPERBAND=52,HAWKFISH=53;
+const reefHabits={
+ [MANDARIN]:['底面点啄','沿右下珊瑚边找它。','它在礁脚逐点停下，嘴尖贴近底面拣食。'],
+ [LONGNOSE]:['探吻石缝','等它游近左上的礁石。','它从石缘将长吻探入狭缝。'],
+ [COPPERBAND]:['换角探隙','观察同一道石缝的两端。','它转到石缝另一侧，再把细吻探进去。'],
+ [BIRD_WRASSE]:['巡礁探食','沿珊瑚外缘观察它的路线。','它沿礁缘一路搜索，在突出处短暂停步探食。'],
+ [FIREFISH]:['受扰退洞','等它在洞前悬停，再用拨水工具。','它从洞前急退到石影里，过一会儿才重新探出。'],
+ [DOTTYBACK]:['巡守洞口','在左上石影外等它折返。','它沿洞缘巡回，绕一圈又游回原来的入口。'],
+ [HAWKFISH]:['换位停栖','在右侧礁脊观察它歇脚。','它在凸起处静候，随后短游到另一处高点。'],
+ [MORAY]:['隙中探头','白天在左上石缝观察头部。','它把身体留在石影里，头部探出后缓缓缩回。'],
+ [PAJAMA]:['昼间聚礁','白天找两尾一起停在礁旁的睡衣天竺鲷。','同伴在白天聚到礁体旁，保持间距缓缓悬停。'],
+ [RIBBONTAIL]:['礁沿歇伏','白天留意左上的岩缘。','它在礁沿贴底歇伏，尾部伸在外面。'],
+ [BAMBOO_SHARK]:['夜巡沙沿','入夜后去沙地与礁石交界处找它。','白天藏身的鲨鱼入夜离开石影，沿沙地边缘巡游。'],
+ [LIONFISH]:['展鳍缓逼','在它前方不远处投饵。','它展开胸鳍缓慢逼近，接近后才加速取食。'],
+ [BLUE_TANG]:['水中截食','在蓝吊前方稍远处投下鱼粮。','它离开原来的巡游路线，横切向水中的食粒。'],
+ [YELLOW_TANG]:['连啄藻面','看它如何沿礁面移动。','它在同一块礁面上连续点啄，再向旁边挪几步。'],
+ [COWFISH]:['吹沙觅食','在白沙地留意吻前的小沙云。','它把吻对准沙地，嘴前扬起一小束沙粒。'],
+ [BOXFISH]:['沿底啄食','观察它在沙石交界处停下的样子。','它逐点贴近底面，以小口啄取食物。']
+};
+// Local positions on reef.webp: volcanic rock at upper left, coral along
+// the lower right border and exposed sand between the two.
+function reefPoint(x,y){return {x:zoneStart('reef')/width+x,y};}
+function reefDestination(s,seed,hour){
+ const t=elapsed+seed*12,day=hour>=7&&hour<19;
+ switch(s.type){
+ case MANDARIN:return reefPoint(.69+.023*Math.sin(Math.floor(t/3)*2),.85+.014*Math.cos(Math.floor(t/3)));
+ case LONGNOSE:return reefPoint(.153+.009*Math.sin(t*.9),.209);
+ case COPPERBAND:return reefPoint(.178+.018*Math.cos(t*.34),.184+.015*Math.sin(t*.34));
+ case BIRD_WRASSE:return reefPoint(.82+.067*Math.sin(t*.20),.70-.072*Math.sin(t*.20));
+ case FIREFISH:return reefPoint(.15,.22);
+ case DOTTYBACK:return reefPoint(.177+.026*Math.cos(t*.25),.192+.022*Math.sin(t*.25));
+ case HAWKFISH:return reefPoint(.865+.021*Math.cos(Math.floor(t/7)*2),.67+.029*Math.sin(Math.floor(t/7)*2));
+ case MORAY:return day?reefPoint(.177+.008*Math.sin(t*.53),.183):null;
+ case PAJAMA:return day?reefPoint(.79+.015*seed,.76+.019*seed):null;
+ case RIBBONTAIL:return day?reefPoint(.137,.197):null;
+ case BAMBOO_SHARK:return day?reefPoint(.115,.178):reefPoint(.48+.22*Math.sin(t*.07),.69+.05*Math.cos(t*.12));
+ case YELLOW_TANG:return reefPoint(.785+.02*Math.sin(Math.floor(t/4)*1.8),.77+.012*Math.cos(Math.floor(t/4)));
+ case COWFISH:return reefPoint(.51+.022*Math.sin(Math.floor(t/5)),.51);
+ case BOXFISH:return reefPoint(.65+.028*Math.cos(Math.floor(t/4)),.84+.012*Math.sin(Math.floor(t/4)));
+ default:return null;
+ }
+}
+function reefAction(s,site,d,hour){
+ if(!site||!reefHabits[s.type])return false;
+ switch(s.type){
+ case FIREFISH:return s.retreatUntil>elapsed&&d<20;
+ case PAJAMA:return d<42&&swimmers.some(o=>o!==s&&o.type===PAJAMA&&Math.hypot((o.x-s.x)*width,(o.y-s.y)*height)<85);
+ case BAMBOO_SHARK:return (hour<7||hour>=19)&&d<95&&s.speed>4;
+ case BIRD_WRASSE:case DOTTYBACK:return d<48&&s.speed>3;
+ default:return d<20;
+ }
+}
+function drawReefDetail(c,s){
+ if(!s.speciesAction||s.speciesAction!==reefHabits[s.type]?.[0])return;
+ c.save();c.translate(s.x*width,s.y*height);c.rotate(s.angle);
+ if(s.type===COWFISH){
+  for(let i=0;i<15;i++){
+   const t=(elapsed*1.4+i/15)%1;c.fillStyle='rgba(223,213,173,'+(.75*(1-t))+')';
+   c.beginPath();c.arc(3+t*24,t*Math.sin(i*3.8)*11,1+t,0,2*Math.PI);c.fill();
+  }
+ }else if([MANDARIN,LONGNOSE,COPPERBAND,BIRD_WRASSE,YELLOW_TANG,BOXFISH].includes(s.type)){
+  const t=(elapsed*(s.type===YELLOW_TANG?2.5:1.4))%1;c.strokeStyle='rgba(212,211,171,'+(.55*(1-t))+')';
+  c.beginPath();c.ellipse(2,0,2+t*4,1+t*3,0,-1,1);c.stroke();
+ }else if(s.type===LIONFISH){
+  for(const side of [-1,1]){
+   c.strokeStyle='#d9bc8b99';c.lineWidth=1.3;
+   for(let i=0;i<6;i++){
+    c.beginPath();c.moveTo(-s.length*.26,side*3);c.lineTo(-s.length*(.2+i*.07),side*s.length*(.22+.08*Math.sin(i*.6)));c.stroke();
+   }
+  }
+ }
+ c.restore();
+}
+</script><script>"use strict";
 const INCOME_PERIOD=2*3600000;
 const individualHabits={
  bold:{clue:'总是很快发现鱼粮，一见饵就加速靠近。',action:'抢先追饵'},
@@ -305,6 +542,7 @@ function habitLine(f,item){
  return count>=3?'观察笔记 · '+individualHabits[disposition(f)].clue:'观察笔记 '+count+'/3 · '+(['bold','patient'].includes(disposition(f))?'撒饵时':'巡游时')+'轻点它，记录习性';
 }
 const speciesClues={
+ ...Object.fromEntries(Object.entries({...shallowHabits,...reefHabits}).map(([type,habit])=>[type,habit[1]])),
  [MEDAKA]:'观察两尾青鳉靠近后怎样转向。',
  [STRIPED_KILLIFISH]:'等它贴水静伏时，在吻前不远处投下鱼粮。',
  [HATCHETFISH]:'换到拨水，在它身旁轻划一次。',
@@ -317,6 +555,7 @@ const speciesClues={
  [BUTTERFLY_FISH]:'在它身边撒几粒鱼粮。'
 };
 const speciesObservations={
+ ...Object.fromEntries(Object.entries({...shallowHabits,...reefHabits}).map(([type,habit])=>[type,habit[2]])),
  [MEDAKA]:'靠近同伴后，它调整朝向和间距，两尾鱼身后的细纹渐渐平行。',
  [STRIPED_KILLIFISH]:'它在水面静候，附近有食粒落水，便突然一掠而出。',
  [HATCHETFISH]:'近处水面受扰，它短跃离水，又在前方落回水中。',
@@ -823,10 +1062,10 @@ function checkLives(now=Date.now()){
 }
 </script><script>"use strict";
 const wildImage=new Image();wildImage.src=fieldTextures[1];
-function paintSeaStar(c){
+function paintSeaStar(c,phase=0){
  c.beginPath();
  for(let i=0;i<10;i++){
-  const a=i*Math.PI/5,r=i%2?7:20;
+  const a=i*Math.PI/5,r=i%2?7:20+1.3*Math.sin(phase+i*.7);
   c.lineTo(Math.cos(a)*r,Math.sin(a)*r);
  }
  c.closePath();c.lineJoin='round';c.lineWidth=3;c.strokeStyle='#c87a49';c.stroke();c.fillStyle='#d58b55';c.fill();
@@ -879,6 +1118,11 @@ function currentVisit(now=Date.now()){
  const type=reef?(other?HERMIT_CRAB:SEA_STAR):(other?BUTTERFLY:VISITOR);
  return {type,day,start,age,...visitorKinds[type]};
 }
+const shoreLeaves=[{x:.098,y:.787},{x:.155,y:.912},{x:.088,y:.962},{x:.041,y:.875},{x:.04,y:.77}];
+function shorePerch(seed,leg){
+ const offset=Math.floor(sampleUnit(seed+'/leaves')*shoreLeaves.length);
+ return shoreLeaves[(leg+offset)%shoreLeaves.length];
+}
 function visitorState(now=Date.now()){
  const v=currentVisit(now);if(!v)return null;
  if(v.type===HERMIT_CRAB){
@@ -886,21 +1130,22 @@ function visitorState(now=Date.now()){
   return {...v,x:zoneStart('reef')/width+.42+.08*Math.sin(t),y:.66+.04*Math.cos(t),heading:Math.atan2(-.04*height*Math.sin(t),.08*width*Math.cos(t)),status:step<8?'背壳漫步':'停步探沙'};
  }
  if(v.type===BUTTERFLY){
-  const cycle=Math.floor(v.age/10),step=v.age%10,t=cycle*7+Math.min(step,7);
-  const a=t*.31,b=t*.48;
-  return {...v,x:.27+.08*Math.sin(a),y:.61+.044*Math.sin(b),heading:Math.atan2(.044*.48*height*Math.cos(b),.08*.31*width*Math.cos(a)),status:step<7?'绕岸翻飞':'合翅停栖'};
+  const leg=Math.floor(v.age/10),step=v.age%10;
+  const from=shorePerch(v.start,leg),to=shorePerch(v.start,leg+1);
+  const u=Math.min(1,step/7),f=u*u*(3-2*u),arch=Math.sin(Math.PI*f);
+  return {...v,x:from.x+(to.x-from.x)*f+.015*arch*Math.sin(step*4),y:from.y+(to.y-from.y)*f-.045*arch,heading:Math.atan2((to.y-from.y)*height,(to.x-from.x)*width),status:step<7?'绕岸翻飞':'合翅停栖'};
  }
  if(v.type===SEA_STAR)return {...v,x:zoneStart('reef')/width+.45+.028*Math.sin(v.age/38),y:.68+.018*Math.cos(v.age/46),heading:.2*Math.sin(v.age/38),status:'沿浅沙觅食'};
  const leg=Math.floor(v.age/8),time=v.age%8;
- function perch(i){const key=v.start+'/'+i;return [.20+.43*sampleUnit(key+'x'),.45+.23*sampleUnit(key+'y')];}
- const [ax,ay]=perch(leg),[bx,by]=perch(leg+1);
+ const {x:ax,y:ay}=shorePerch(v.start,leg),{x:bx,y:by}=shorePerch(v.start,leg+1);
  const t=Math.min(1,time/5),f=t*t*(3-2*t);
  return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f-.045*Math.sin(Math.PI*f),heading:Math.atan2((by-ay-.045*Math.PI*Math.cos(Math.PI*f))*height,(bx-ax)*width),status:t===1?'落脚歇翅':'低飞巡猎'};
 }
 function drawVisitor(c,underwater){
  const v=visitorState();if(!v||(v.zone==='reef')!==underwater)return;
  c.save();c.translate(v.x*width,v.y*height);c.rotate(v.heading);
- if(v.type===SEA_STAR)paintSeaStar(c);
+ if(v.type===HERMIT_CRAB&&v.status==='背壳漫步')c.rotate(.06*Math.sin(v.age*5));
+ if(v.type===SEA_STAR)paintSeaStar(c,v.age*.85);
  else if(v.type===HERMIT_CRAB)paintHermitCrab(c,v.status==='背壳漫步'?2*Math.sin(v.age*5):0);
  else if(v.type===BUTTERFLY)paintButterfly(c,v.status==='绕岸翻飞'?.65+.32*Math.sin(v.age*19):.32);
  else if(wildImage.naturalWidth){c.rotate(Math.PI);c.shadowColor='#18221c77';c.shadowBlur=3;c.shadowOffsetY=v.status==='低飞巡猎'?7:2;
@@ -962,15 +1207,18 @@ function drawTadpoles(dt){
   if(g.stage<3&&g.full<88)for(const a of food){if(a.kind!=='algae'||a.air>0)continue;const d=Math.hypot((m.x-a.x)*width,(m.y-a.y)*height);if(d<nearest){nearest=d;goal=a;}}
   const pivot=elapsed*.18+p.seed*7;
   let tx=m.homeX+Math.sin(pivot)*.034,ty=m.homeY+Math.cos(pivot*.8)*.037;
-  if(g.stage===3){tx=.12+Math.sin(pivot*.4)*.025;ty=.77+Math.cos(pivot*.5)*.026;}
+  if(g.stage===3){const leaf=shorePerch(id,Math.floor((elapsed+p.seed*20)/22));tx=leaf.x;ty=leaf.y;}
   if(goal){tx=goal.x;ty=goal.y;}
   const a=Math.atan2((ty-m.y)*height,(tx-m.x)*width);
   if(m.alarm<=0)m.angle+=Math.atan2(Math.sin(a-m.angle),Math.cos(a-m.angle))*Math.min(1,dt*3.1);
   let speed=m.alarm>0?46+22*p.seed:goal?30+(100-g.full)*.3:8+g.energy*.05;
   if(g.stage===3){
     const phase=(elapsed+p.seed*6)%2.6;
-    m.lift=phase<.42?Math.sin(Math.PI*phase/.42):0;
-    speed=130*m.lift;
+    const toLeaf=Math.hypot((tx-m.x)*width,(ty-m.y)*height);
+    m.lift=phase<.42&&toLeaf>3?Math.sin(Math.PI*phase/.42):0;
+    speed=Math.min(130*m.lift,toLeaf/Math.max(dt,.001));
+    if(!m.lift&&m.airborne){m.landAt=elapsed;if(m.x>.18)splash(m.x,m.y,.10);}
+    m.airborne=m.lift>0;
   }
   if(p.traits.includes('fast'))speed*=1.5;
   m.alarm-=dt;m.x+=Math.cos(m.angle)*speed*dt/width;m.y+=Math.sin(m.angle)*speed*dt/height;
@@ -989,7 +1237,8 @@ function paintFrog(c,id,p,m,stage){
  traceGold(c,'frog-'+id,p.traits,m.x*width,m.y*height);
  const pulse=Math.sin(elapsed*(stage===3?1.6:3)+p.seed*8);
  c.save();c.translate(m.x*width,m.y*height-(m.lift||0)*12);c.rotate(m.angle+Math.PI+.024*pulse);
- c.scale(1+.014*pulse,1-.025*pulse);c.shadowColor='#10221a66';c.shadowBlur=2;c.shadowOffsetY=stage===3?2+(m.lift||0)*12:3;
+ const landing=stage===3&&elapsed-(m.landAt??-1)<.16?.07:0;
+ c.scale(1+.014*pulse+landing,1-.025*pulse-landing);c.shadowColor='#10221a66';c.shadowBlur=2;c.shadowOffsetY=stage===3?2+(m.lift||0)*12:3;
  c.drawImage(img,-length/2,-spriteHeight/2,length,spriteHeight);c.restore();
 }
 function drawFrogs(c){
@@ -1180,6 +1429,15 @@ function paddleWater(x,y,power,observationTap=false){
    }
    if(observationTap)continue;
    if(s.type===HATCHETFISH&&d<135){startHatchetJump(s,x,y);continue;}
+   if(s.type===CLOWNFISH){
+    s.rippleResponse={target:s.home,until:elapsed+3.6,readyAt:elapsed+4.5,profile:{action:'返回海葵',speed:110},strength:1};continue;
+   }
+   if(s.type===FIREFISH){
+    const shelter=reefPoint(.15,.22);
+    if(Math.hypot((s.x-shelter.x)*width,(s.y-shelter.y)*height)<100){
+     s.retreatUntil=elapsed+3;s.rippleResponse={target:reefPoint(.125,.19),until:s.retreatUntil,readyAt:elapsed+4,profile:{action:'急退入洞',speed:150},strength:1};continue;
+    }
+   }
    const profile=rippleResponses[s.style];
    let target={x:s.x+Math.cos(s.angle)*80/width,y:s.y+Math.sin(s.angle)*80/height};
    const away=d>0?Math.atan2(dy,dx):s.angle;
@@ -1250,8 +1508,17 @@ function steer(s,dt,i){
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
- const site=!response&&!partner&&!meal?specialDestination(s,item,g,cycle):null;
- const target=wave||response?.target||partner||meal||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ const site=!response&&!partner&&!meal?(specialDestination(s,item,g,cycle)||(s.fish.habitat==='reef'?reefDestination(s,seed,hour):bottomDestination(s,seed,hour))):null;
+ let foodTarget=meal;
+ if(type===PEA_PUFFER&&meal&&!partner&&dist<65){
+  if(s.inspectBatch!==meal.batch){s.inspectBatch=meal.batch;s.inspectStart=elapsed;}
+  const t=elapsed-s.inspectStart;
+  if(t<1.6){
+   const bearing=Math.atan2(hy-meal.y*height,hx-meal.x*width)+(seed>.5?1:-1)*.7;
+   foodTarget={x:meal.x+Math.cos(bearing)*24/width,y:meal.y+Math.sin(bearing)*24/height};
+  }
+ }
+ const target=wave||response?.target||partner||foodTarget||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
  if(!site&&!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
@@ -1266,11 +1533,12 @@ function steer(s,dt,i){
     }
     vx+=Math.cos(peer.angle)*.7+dx/d*Math.min(3,d/80);vy+=Math.sin(peer.angle)*.7+dy/d*Math.min(3,d/80);}
  }
- for(const other of swimmers){if(other===s||other===site?.host||partner&&type===BITTERLING)continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
+ for(const other of swimmers){if(other===s||other===site?.host||partner&&(type===BITTERLING||spawningBeds[type]))continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turnSpeed=site||partner||wave||response||type===STRIPED_KILLIFISH&&meal?Math.max(65,s.speed):s.speed;
+ const inspecting=type===PEA_PUFFER&&meal&&dist<65;
+ const turnSpeed=site||partner||wave||response||inspecting||type===STRIPED_KILLIFISH&&meal?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));s.angle+=s.angular*dt;
@@ -1299,7 +1567,7 @@ function steer(s,dt,i){
   s.camouflage=clamp((s.camouflage||0)+(resting?dt*.95:-dt*.8),0,1);
   if(resting&&s.camouflage>.55)s.activity=s.speciesAction='贴底变纹';
  }
- if(site||partner&&type===BITTERLING){
+ if(site||partner&&(type===BITTERLING||spawningBeds[type])){
   speed=Math.min(site?.host?site.host.speed+28:50,norm*1.2);
   if(norm<20&&type===BETTA&&tendNest(s,item,site))s.speciesAction='补筑泡巢';
   if(site?.host&&norm<40&&Math.cos(s.angle-site.host.angle)>.65)s.speciesAction='伴影潜行';
@@ -1322,6 +1590,35 @@ function steer(s,dt,i){
   if(s.strikeUntil>elapsed)s.speciesAction='掠取浮食';
  }
  if(type===HATCHETFISH&&elapsed-s.landedAt<.8)s.speciesAction='跃水回落';
+ if(reefAction(s,site||response?.target,norm,hour)&&(!response||type===FIREFISH))s.speciesAction=reefHabits[type][0];
+ if(type===LIONFISH&&meal&&!partner&&dist<115&&Math.abs(diff)<.8){
+  speed=dist>24?16:66;s.speciesAction=reefHabits[type][0];
+ }
+ if(type===BLUE_TANG&&meal&&!partner&&dist<160&&dist>14&&elapsed-meal.castAt<4){
+  speed=Math.min(95,30+dist*.7);s.speciesAction=reefHabits[type][0];
+ }
+ if(type===SLEEPER){
+  if(site&&norm<24)s.ambushFromCover=true;
+  if(response||partner||Math.hypot((s.x-rockGap.x)*width,(s.y-rockGap.y)*height)>115)s.ambushFromCover=false;
+  if(s.ambushFromCover&&meal&&dist<110&&Math.abs(diff)<.8){speed=Math.min(125,32+dist);s.speciesAction=shallowHabits[type][0];}
+ }
+ if(inspecting){
+  // Finish the arc facing the morsel before the final short approach.
+  if(foodTarget!==meal){speed=30;s.speciesAction=shallowHabits[type][0];}
+  else speed=Math.min(speed,dist*1.4)*Math.max(.05,Math.cos(diff));
+ }
+ if(spawningBeds[type]&&partner&&norm<30)s.activity='清理产卵面';
+ let handling=false;
+ if(isGourami(type)||type===CHERRY_SHRIMP||type===BLUE_CRAYFISH){
+  handling=handleShallowFood(s,!partner&&meal,dist,diff,dt);
+  if(handling){speed=0;s.speciesAction=shallowHabits[type][0];}
+ }else if(bottomAction(s,site)){
+  s.speciesAction=shallowHabits[type][0];
+  if(type===PLECO)speed=Math.min(speed,3);
+ }
+ if(type===CLOWNFISH&&response&&norm<42)s.speciesAction=shallowHabits[type][0];
+ if(type===NERITE)updateScrapeTrail(s);
+ if(type===TENCH&&meal&&meal.kind==='algae'&&dist<38&&Math.abs(diff)<.8){speed=Math.min(speed,18);s.speciesAction=shallowHabits[type][0];}
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
@@ -1329,7 +1626,7 @@ function steer(s,dt,i){
  const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
- if(meal&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
+ if(meal&&foodTarget===meal&&!handling&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  poseFish(s,dt);
  s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[SPINE_SEGMENTS];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
 }
@@ -1394,10 +1691,11 @@ function drawFish(s){
  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
  const mid=s.bones[17];
  if(mid.x+s.length<cam.x||mid.x-s.length>cam.x+vw/zoom||mid.y+s.length<cam.y||mid.y-s.length>cam.y+vh/zoom){if(!huntRun&&s.fish.id===garden.selected)markAt(mid.x,mid.y);return;}
+ if(s.scrapeTrail)drawScrapeTrail(ctx,s.scrapeTrail);
  const tail=s.bones[SPINE_SEGMENTS];
  traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,tail.x,tail.y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
  const shadow=ctx.createRadialGradient(0,0,0,0,0,1);shadow.addColorStop(0,'#04191270');shadow.addColorStop(1,'#04191200');ctx.scale(s.length*.53,h*.36);ctx.fillStyle=shadow;ctx.fillRect(-1,-1,2,2);ctx.restore();
- if(s.jump)return;
+ if(s.jump||s.speciesAction===shallowHabits[BASKING_TURTLE][0])return;
  if(s.speciesAction==='贴水并巡'||s.speciesAction==='掠取浮食'){
   ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(s.angle);
   ctx.strokeStyle='#d3f3e280';ctx.lineWidth=1;ctx.beginPath();
@@ -1407,7 +1705,8 @@ function drawFish(s){
   }
   ctx.stroke();ctx.restore();
  }
- ctx.globalAlpha=.94;
+ const tucked=s.speciesAction&&(s.type===DOJO||s.type===KUHLI||s.type===FIREFISH);
+ ctx.globalAlpha=tucked?.52:.94;
  if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);
   if(s.type===CUTTLEFISH&&s.camouflage>0){
    const [sand,reef]=mantlePatterns(s,img),contrast=reefContrast(mid.x/width-zoneStart('reef')/width,mid.y/height);
@@ -1415,8 +1714,18 @@ function drawFish(s){
    ctx.globalAlpha=s.camouflage*contrast;ctx.drawImage(reef,0,-h*.5,s.length,h);
   }
   ctx.restore();}
- else drawContinuousBody(ctx,s,img,h);
+ else if(s.type===MORAY&&s.speciesAction){
+  // The head projects from the crevice while the long body stays in shade.
+  ctx.save();ctx.beginPath();ctx.arc(s.x*width,s.y*height,Math.max(12,s.length*.39),0,2*Math.PI);ctx.clip();
+  drawContinuousBody(ctx,s,img,h);ctx.restore();
+ }else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
+ drawShallowAction(ctx,s);drawReefDetail(ctx,s);
+ if(s.activity==='清理产卵面'||spawningBeds[s.type]&&s.speciesAction){
+  ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle);
+  const pulse=(elapsed*1.8)%1;ctx.strokeStyle='rgba(199,213,181,'+(.60*(1-pulse))+')';
+  ctx.beginPath();ctx.ellipse(1,0,2+pulse*6,1+pulse*4,0,-1.1,1.1);ctx.stroke();ctx.restore();
+ }
  if(s.suctionUntil>elapsed||garden.fish[s.fish.id].brood){
   ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle);
   const size=Math.max(2,s.length*.045);
@@ -1500,7 +1809,7 @@ function frame(ts){
    edge.addColorStop(.85,'#46371e00');edge.addColorStop(.89,'#36291688');edge.addColorStop(.91,'#10211666');edge.addColorStop(1,'#10211600');
    ctx.fillStyle=edge;ctx.fillRect(width-6,0,DECK+19,height);
  }
- drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
+ drawBottomHabitat(ctx);drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
  for(let i=ripples.length-1;i>=0;i--){ripples[i].age+=dt;if(ripples[i].age>3.2)ripples.splice(i,1);}
  const clock=gardenTime(),hour=clock.getUTCHours()+clock.getUTCMinutes()/60;
  const light=clamp(.65+Math.sin((hour-6)*Math.PI/12)*.65,.12,1);
@@ -1516,6 +1825,13 @@ function paintAboveWater(){
   const img=s.colored.width===s.sprite.width?s.colored:s.sprite;
   air.save();air.translate(0,-s.lift);drawContinuousBody(air,s,img,s.length*img.height/img.width);air.restore();
   if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(s.x*width,s.y*height-s.lift-12);
+ }
+ for(const s of swimmers){
+  if(s.type!==BASKING_TURTLE||s.speciesAction!==shallowHabits[BASKING_TURTLE][0]||!s.sprite.naturalWidth)continue;
+  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
+  air.save();air.translate(s.x*width,s.y*height);air.rotate(s.angle+Math.PI);
+  air.shadowColor='#20332777';air.shadowBlur=2;air.shadowOffsetY=2;air.drawImage(img,0,-h/2,s.length,h);air.restore();
+  if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(s.x*width,s.y*height-h/2-10);
  }
  drawVisitor(air,false);drawFrogs(air);drawDebris(air);for(const p of food){if(p.air>0)drawPellet(air,p);}
 }
@@ -1595,6 +1911,7 @@ function matingTarget(s){
  const pair=pairings.get(s.fish.habitat);
  if(!pair||!pair.ids.includes(s.fish.id))return null;
  const other=swimmers.find(o=>o.fish.id===pair.ids.find(id=>id!==s.fish.id));
+ if(spawningBeds[s.type])return spawningBeds[s.type];
  if(s.type===BITTERLING)return musselSite;
  return other?{x:other.x,y:other.y}:null;
 }
@@ -1611,10 +1928,13 @@ function hatchFry(pair,site,now){
  const type=parents[Math.floor(Math.random()*2)].type;
  const origin=[a,b].map(f=>({id:f.id,type:garden.fish[f.id].type}));
  const seed=Math.max(0,Math.min(.999999,(parents[0].seed+parents[1].seed)/2+(Math.random()-.5)*.30));
- if(type===BITTERLING&&garden.musselBrood)return false;
+ if(type===BITTERLING&&garden.musselBrood||garden.bedBroods?.[type])return false;
  for(const p of parents)p.restUntil=now+breedingRest;
- if(type===BANGGAI||type===BITTERLING){
+ if(type===BANGGAI||type===BITTERLING||spawningBeds[type]){
   const brood={type,parents:origin,seed,due:now+45000,laid:now};
+  if(spawningBeds[type]){
+   (garden.bedBroods??={})[type]=brood;record(breeds[type].breed+'在'+(type===ANGEL?'宽叶':'平石')+'上产下了卵。');save();return true;
+  }
   if(type===BANGGAI)parents.find(p=>p.sex==='雄').brood=brood;else garden.musselBrood=brood;
   record(type===BANGGAI?'邦盖天竺鲷雄鱼含住了这一窝卵。':'彩石鲋在浅滩河蚌内产下了卵。');save();return true;
  }
@@ -1632,7 +1952,8 @@ async function releaseBroods(now){
  if(releasePending)return;
  const musselReady=garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY;
  const fatherReady=Object.values(garden.fish).some(p=>p.brood?.due<=now&&p.deathAt>now)&&localStock('reef').length<CAPACITY;
- if(!musselReady&&!fatherReady)return;
+ const bedReady=Object.values(garden.bedBroods||{}).some(b=>b.due<=now)&&localStock('pond').length<CAPACITY;
+ if(!musselReady&&!fatherReady&&!bedReady)return;
  releasePending=true;
  const created=garden.created;
  const commit=()=>{
@@ -1640,11 +1961,14 @@ async function releaseBroods(now){
   garden=latest;rebuildRoster();let changed=false;
   function release(b,site){
    addFry(b.type,b.parents,b.seed,site,now);discover(garden,b.type);
-   record(b.type===BANGGAI?'一尾邦盖天竺鲷幼鱼从父鱼嘴边游出。':'一尾彩石鲋幼鱼从河蚌开口游出。');
+   record(b.type===BANGGAI?'一尾邦盖天竺鲷幼鱼从父鱼嘴边游出。':b.type===BITTERLING?'一尾彩石鲋幼鱼从河蚌开口游出。':'一尾'+breeds[b.type].breed+'幼鱼在产卵处孵化。');
    changed=true;rebuildRoster();
   }
   if(garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY){
    release(garden.musselBrood,{x:musselSite.x,y:musselSite.y});delete garden.musselBrood;
+  }
+  for(const [key,brood] of Object.entries(garden.bedBroods||{})){
+   if(brood.due<=now&&localStock('pond').length<CAPACITY){release(brood,spawningBeds[key]);delete garden.bedBroods[key];}
   }
   for(const s of swimmers){
    const p=garden.fish[s.fish.id];
@@ -1673,7 +1997,9 @@ function checkBreeding(now=Date.now()){
    const [a,b]=pair.ids.map(id=>swimmers.find(s=>s.fish.id===id));
    if(!a||!b||now-pair.start>90000||!eligiblePair(a.fish,b.fish,now)){pairings.delete(zone);continue;}
    const nearHost=a.type!==BITTERLING||!garden.musselBrood&&[a,b].every(s=>Math.hypot((s.x-musselSite.x)*width,(s.y-musselSite.y)*height)<32);
-   if(nearHost&&now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
+   const bed=spawningBeds[a.type],nearBed=!bed||!garden.bedBroods?.[a.type]&&[a,b].every(s=>Math.hypot((s.x-bed.x)*width,(s.y-bed.y)*height)<30);
+   if(bed&&nearBed)pair.cleanSince??=now;else delete pair.cleanSince;
+   if(nearHost&&nearBed&&(!bed||now-pair.cleanSince>=3200)&&now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
     pairings.delete(zone);void settlePair(pair,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
    }
    continue;
@@ -1769,6 +2095,7 @@ setInterval(()=>{
 // Fixed scene landmarks use the same world coordinates as the swimmers.
 const musselSite={x:.34,y:.69};
 function specialDestination(s,item,g,cycle){
+ if(garden.bedBroods?.[s.type]?.parents.some(p=>p.id===s.fish.id))return spawningBeds[s.type];
  if(s.type===BETTA&&item.sex==='雄'&&g.maturity>=1&&(!item.nest||cycle<13)){
   return item.nest||{x:.23+.07*item.seed,y:.65+.03*item.seed};
  }

@@ -101,6 +101,15 @@ function paddleWater(x,y,power,observationTap=false){
    }
    if(observationTap)continue;
    if(s.type===HATCHETFISH&&d<135){startHatchetJump(s,x,y);continue;}
+   if(s.type===CLOWNFISH){
+    s.rippleResponse={target:s.home,until:elapsed+3.6,readyAt:elapsed+4.5,profile:{action:'返回海葵',speed:110},strength:1};continue;
+   }
+   if(s.type===FIREFISH){
+    const shelter=reefPoint(.15,.22);
+    if(Math.hypot((s.x-shelter.x)*width,(s.y-shelter.y)*height)<100){
+     s.retreatUntil=elapsed+3;s.rippleResponse={target:reefPoint(.125,.19),until:s.retreatUntil,readyAt:elapsed+4,profile:{action:'急退入洞',speed:150},strength:1};continue;
+    }
+   }
    const profile=rippleResponses[s.style];
    let target={x:s.x+Math.cos(s.angle)*80/width,y:s.y+Math.sin(s.angle)*80/height};
    const away=d>0?Math.atan2(dy,dx):s.angle;
@@ -171,8 +180,17 @@ function steer(s,dt,i){
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
- const site=!response&&!partner&&!meal?specialDestination(s,item,g,cycle):null;
- const target=wave||response?.target||partner||meal||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ const site=!response&&!partner&&!meal?(specialDestination(s,item,g,cycle)||(s.fish.habitat==='reef'?reefDestination(s,seed,hour):bottomDestination(s,seed,hour))):null;
+ let foodTarget=meal;
+ if(type===PEA_PUFFER&&meal&&!partner&&dist<65){
+  if(s.inspectBatch!==meal.batch){s.inspectBatch=meal.batch;s.inspectStart=elapsed;}
+  const t=elapsed-s.inspectStart;
+  if(t<1.6){
+   const bearing=Math.atan2(hy-meal.y*height,hx-meal.x*width)+(seed>.5?1:-1)*.7;
+   foodTarget={x:meal.x+Math.cos(bearing)*24/width,y:meal.y+Math.sin(bearing)*24/height};
+  }
+ }
+ const target=wave||response?.target||partner||foodTarget||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
  if(!site&&!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
@@ -187,11 +205,12 @@ function steer(s,dt,i){
     }
     vx+=Math.cos(peer.angle)*.7+dx/d*Math.min(3,d/80);vy+=Math.sin(peer.angle)*.7+dy/d*Math.min(3,d/80);}
  }
- for(const other of swimmers){if(other===s||other===site?.host||partner&&type===BITTERLING)continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
+ for(const other of swimmers){if(other===s||other===site?.host||partner&&(type===BITTERLING||spawningBeds[type]))continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turnSpeed=site||partner||wave||response||type===STRIPED_KILLIFISH&&meal?Math.max(65,s.speed):s.speed;
+ const inspecting=type===PEA_PUFFER&&meal&&dist<65;
+ const turnSpeed=site||partner||wave||response||inspecting||type===STRIPED_KILLIFISH&&meal?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));s.angle+=s.angular*dt;
@@ -220,7 +239,7 @@ function steer(s,dt,i){
   s.camouflage=clamp((s.camouflage||0)+(resting?dt*.95:-dt*.8),0,1);
   if(resting&&s.camouflage>.55)s.activity=s.speciesAction='贴底变纹';
  }
- if(site||partner&&type===BITTERLING){
+ if(site||partner&&(type===BITTERLING||spawningBeds[type])){
   speed=Math.min(site?.host?site.host.speed+28:50,norm*1.2);
   if(norm<20&&type===BETTA&&tendNest(s,item,site))s.speciesAction='补筑泡巢';
   if(site?.host&&norm<40&&Math.cos(s.angle-site.host.angle)>.65)s.speciesAction='伴影潜行';
@@ -243,6 +262,35 @@ function steer(s,dt,i){
   if(s.strikeUntil>elapsed)s.speciesAction='掠取浮食';
  }
  if(type===HATCHETFISH&&elapsed-s.landedAt<.8)s.speciesAction='跃水回落';
+ if(reefAction(s,site||response?.target,norm,hour)&&(!response||type===FIREFISH))s.speciesAction=reefHabits[type][0];
+ if(type===LIONFISH&&meal&&!partner&&dist<115&&Math.abs(diff)<.8){
+  speed=dist>24?16:66;s.speciesAction=reefHabits[type][0];
+ }
+ if(type===BLUE_TANG&&meal&&!partner&&dist<160&&dist>14&&elapsed-meal.castAt<4){
+  speed=Math.min(95,30+dist*.7);s.speciesAction=reefHabits[type][0];
+ }
+ if(type===SLEEPER){
+  if(site&&norm<24)s.ambushFromCover=true;
+  if(response||partner||Math.hypot((s.x-rockGap.x)*width,(s.y-rockGap.y)*height)>115)s.ambushFromCover=false;
+  if(s.ambushFromCover&&meal&&dist<110&&Math.abs(diff)<.8){speed=Math.min(125,32+dist);s.speciesAction=shallowHabits[type][0];}
+ }
+ if(inspecting){
+  // Finish the arc facing the morsel before the final short approach.
+  if(foodTarget!==meal){speed=30;s.speciesAction=shallowHabits[type][0];}
+  else speed=Math.min(speed,dist*1.4)*Math.max(.05,Math.cos(diff));
+ }
+ if(spawningBeds[type]&&partner&&norm<30)s.activity='清理产卵面';
+ let handling=false;
+ if(isGourami(type)||type===CHERRY_SHRIMP||type===BLUE_CRAYFISH){
+  handling=handleShallowFood(s,!partner&&meal,dist,diff,dt);
+  if(handling){speed=0;s.speciesAction=shallowHabits[type][0];}
+ }else if(bottomAction(s,site)){
+  s.speciesAction=shallowHabits[type][0];
+  if(type===PLECO)speed=Math.min(speed,3);
+ }
+ if(type===CLOWNFISH&&response&&norm<42)s.speciesAction=shallowHabits[type][0];
+ if(type===NERITE)updateScrapeTrail(s);
+ if(type===TENCH&&meal&&meal.kind==='algae'&&dist<38&&Math.abs(diff)<.8){speed=Math.min(speed,18);s.speciesAction=shallowHabits[type][0];}
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
@@ -250,7 +298,7 @@ function steer(s,dt,i){
  const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
- if(meal&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
+ if(meal&&foodTarget===meal&&!handling&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  poseFish(s,dt);
  s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[SPINE_SEGMENTS];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
 }
@@ -315,10 +363,11 @@ function drawFish(s){
  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
  const mid=s.bones[17];
  if(mid.x+s.length<cam.x||mid.x-s.length>cam.x+vw/zoom||mid.y+s.length<cam.y||mid.y-s.length>cam.y+vh/zoom){if(!huntRun&&s.fish.id===garden.selected)markAt(mid.x,mid.y);return;}
+ if(s.scrapeTrail)drawScrapeTrail(ctx,s.scrapeTrail);
  const tail=s.bones[SPINE_SEGMENTS];
  traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,tail.x,tail.y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
  const shadow=ctx.createRadialGradient(0,0,0,0,0,1);shadow.addColorStop(0,'#04191270');shadow.addColorStop(1,'#04191200');ctx.scale(s.length*.53,h*.36);ctx.fillStyle=shadow;ctx.fillRect(-1,-1,2,2);ctx.restore();
- if(s.jump)return;
+ if(s.jump||s.speciesAction===shallowHabits[BASKING_TURTLE][0])return;
  if(s.speciesAction==='贴水并巡'||s.speciesAction==='掠取浮食'){
   ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(s.angle);
   ctx.strokeStyle='#d3f3e280';ctx.lineWidth=1;ctx.beginPath();
@@ -328,7 +377,8 @@ function drawFish(s){
   }
   ctx.stroke();ctx.restore();
  }
- ctx.globalAlpha=.94;
+ const tucked=s.speciesAction&&(s.type===DOJO||s.type===KUHLI||s.type===FIREFISH);
+ ctx.globalAlpha=tucked?.52:.94;
  if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);
   if(s.type===CUTTLEFISH&&s.camouflage>0){
    const [sand,reef]=mantlePatterns(s,img),contrast=reefContrast(mid.x/width-zoneStart('reef')/width,mid.y/height);
@@ -336,8 +386,18 @@ function drawFish(s){
    ctx.globalAlpha=s.camouflage*contrast;ctx.drawImage(reef,0,-h*.5,s.length,h);
   }
   ctx.restore();}
- else drawContinuousBody(ctx,s,img,h);
+ else if(s.type===MORAY&&s.speciesAction){
+  // The head projects from the crevice while the long body stays in shade.
+  ctx.save();ctx.beginPath();ctx.arc(s.x*width,s.y*height,Math.max(12,s.length*.39),0,2*Math.PI);ctx.clip();
+  drawContinuousBody(ctx,s,img,h);ctx.restore();
+ }else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
+ drawShallowAction(ctx,s);drawReefDetail(ctx,s);
+ if(s.activity==='清理产卵面'||spawningBeds[s.type]&&s.speciesAction){
+  ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle);
+  const pulse=(elapsed*1.8)%1;ctx.strokeStyle='rgba(199,213,181,'+(.60*(1-pulse))+')';
+  ctx.beginPath();ctx.ellipse(1,0,2+pulse*6,1+pulse*4,0,-1.1,1.1);ctx.stroke();ctx.restore();
+ }
  if(s.suctionUntil>elapsed||garden.fish[s.fish.id].brood){
   ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle);
   const size=Math.max(2,s.length*.045);
@@ -421,7 +481,7 @@ function frame(ts){
    edge.addColorStop(.85,'#46371e00');edge.addColorStop(.89,'#36291688');edge.addColorStop(.91,'#10211666');edge.addColorStop(1,'#10211600');
    ctx.fillStyle=edge;ctx.fillRect(width-6,0,DECK+19,height);
  }
- drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
+ drawBottomHabitat(ctx);drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
  for(let i=ripples.length-1;i>=0;i--){ripples[i].age+=dt;if(ripples[i].age>3.2)ripples.splice(i,1);}
  const clock=gardenTime(),hour=clock.getUTCHours()+clock.getUTCMinutes()/60;
  const light=clamp(.65+Math.sin((hour-6)*Math.PI/12)*.65,.12,1);
@@ -437,6 +497,13 @@ function paintAboveWater(){
   const img=s.colored.width===s.sprite.width?s.colored:s.sprite;
   air.save();air.translate(0,-s.lift);drawContinuousBody(air,s,img,s.length*img.height/img.width);air.restore();
   if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(s.x*width,s.y*height-s.lift-12);
+ }
+ for(const s of swimmers){
+  if(s.type!==BASKING_TURTLE||s.speciesAction!==shallowHabits[BASKING_TURTLE][0]||!s.sprite.naturalWidth)continue;
+  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
+  air.save();air.translate(s.x*width,s.y*height);air.rotate(s.angle+Math.PI);
+  air.shadowColor='#20332777';air.shadowBlur=2;air.shadowOffsetY=2;air.drawImage(img,0,-h/2,s.length,h);air.restore();
+  if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(s.x*width,s.y*height-h/2-10);
  }
  drawVisitor(air,false);drawFrogs(air);drawDebris(air);for(const p of food){if(p.air>0)drawPellet(air,p);}
 }
