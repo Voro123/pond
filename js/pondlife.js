@@ -5,7 +5,7 @@ const pairings=new Map(),attempted=new Map();
 const courtshipRound=30000,breedingRest=300000;
 function readyParent(f,now){
  const item=garden.fish[f.id];
- if(!item||f.kind!=='鱼类'||item.deathAt<=now||(item.restUntil||0)>now)return false;
+ if(!item||item.brood||f.kind!=='鱼类'||item.deathAt<=now||(item.restUntil||0)>now)return false;
  const growth=growthOf(f,now);
  return growth.maturity>=1&&growth.full>=55;
 }
@@ -13,6 +13,7 @@ function matingTarget(s){
  const pair=pairings.get(s.fish.habitat);
  if(!pair||!pair.ids.includes(s.fish.id))return null;
  const other=swimmers.find(o=>o.fish.id===pair.ids.find(id=>id!==s.fish.id));
+ if(s.type===BITTERLING)return musselSite;
  return other?{x:other.x,y:other.y}:null;
 }
 function eligiblePair(a,b,now){
@@ -25,13 +26,53 @@ function hatchFry(pair,site,now){
  const [a,b]=pair.ids.map(id=>koi.find(f=>f.id===id));
  if(!eligiblePair(a,b,now))return false;
  const parents=pair.ids.map(id=>garden.fish[id]);
- const type=parents[Math.floor(Math.random()*2)].type,id='k'+String(garden.next++).padStart(2,'0');
+ const type=parents[Math.floor(Math.random()*2)].type;
+ const origin=[a,b].map(f=>({id:f.id,type:garden.fish[f.id].type}));
  const seed=Math.max(0,Math.min(.999999,(parents[0].seed+parents[1].seed)/2+(Math.random()-.5)*.30));
- const child={...individual(type,now,seed),hatchery:true,parents:[a,b].map(f=>({id:f.id,type:garden.fish[f.id].type})),hatchPosition:site};
- garden.fish[id]=child;for(const p of parents)p.restUntil=now+breedingRest;
+ if(type===BITTERLING&&garden.musselBrood)return false;
+ for(const p of parents)p.restUntil=now+breedingRest;
+ if(type===BANGGAI||type===BITTERLING){
+  const brood={type,parents:origin,seed,due:now+45000,laid:now};
+  if(type===BANGGAI)parents.find(p=>p.sex==='雄').brood=brood;else garden.musselBrood=brood;
+  record(type===BANGGAI?'邦盖天竺鲷雄鱼含住了这一窝卵。':'彩石鲋在浅滩河蚌内产下了卵。');save();return true;
+ }
+ addFry(type,origin,seed,site,now);
  discover(garden,type);refreshPopulation();
  record('一尾'+breeds[type].breed+'鱼苗在'+(a.habitat==='reef'?'潮间礁池':'镜水庭')+'孵化。');
  save();note('鱼苗孵化 · '+breeds[type].breed);return true;
+}
+function addFry(type,parents,seed,site,now){
+ const id='k'+String(garden.next++).padStart(2,'0');
+ garden.fish[id]={...individual(type,now,seed),hatchery:true,parents,hatchPosition:site};
+}
+let releasePending=false;
+async function releaseBroods(now){
+ if(releasePending)return;
+ const musselReady=garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY;
+ const fatherReady=Object.values(garden.fish).some(p=>p.brood?.due<=now&&p.deathAt>now)&&localStock('reef').length<CAPACITY;
+ if(!musselReady&&!fatherReady)return;
+ releasePending=true;
+ const created=garden.created;
+ const commit=()=>{
+  const latest=readState();if(latest.created!==created)return;
+  garden=latest;rebuildRoster();let changed=false;
+  function release(b,site){
+   addFry(b.type,b.parents,b.seed,site,now);discover(garden,b.type);
+   record(b.type===BANGGAI?'一尾邦盖天竺鲷幼鱼从父鱼嘴边游出。':'一尾彩石鲋幼鱼从河蚌开口游出。');
+   changed=true;rebuildRoster();
+  }
+  if(garden.musselBrood?.due<=now&&localStock('pond').length<CAPACITY){
+   release(garden.musselBrood,{x:musselSite.x,y:musselSite.y});delete garden.musselBrood;
+  }
+  for(const s of swimmers){
+   const p=garden.fish[s.fish.id];
+   if(p?.brood?.due<=now&&p.deathAt>now&&localStock('reef').length<CAPACITY){
+    release(p.brood,{x:s.x,y:s.y});delete p.brood;s.releaseUntil=elapsed+4;
+   }
+  }
+  if(changed){refreshPopulation();save();}
+ };
+ try{if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();}finally{releasePending=false;}
 }
 async function settlePair(pair,site){
  const commit=()=>{
@@ -42,13 +83,15 @@ async function settlePair(pair,site){
  if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
 }
 function checkBreeding(now=Date.now()){
+ void releaseBroods(now);
  const round=Math.floor(now/courtshipRound);
  for(const zone of garden.reef?['pond','reef']:['pond']){
   const pair=pairings.get(zone);
   if(pair){
    const [a,b]=pair.ids.map(id=>swimmers.find(s=>s.fish.id===id));
    if(!a||!b||now-pair.start>90000||!eligiblePair(a.fish,b.fish,now)){pairings.delete(zone);continue;}
-   if(now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
+   const nearHost=a.type!==BITTERLING||!garden.musselBrood&&[a,b].every(s=>Math.hypot((s.x-musselSite.x)*width,(s.y-musselSite.y)*height)<32);
+   if(nearHost&&now-pair.start>3600&&Math.hypot((a.x-b.x)*width,(a.y-b.y)*height)<90){
     pairings.delete(zone);void settlePair(pair,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
    }
    continue;
@@ -140,3 +183,53 @@ setInterval(()=>{
  const cutoff=performance.now()/1000-4;
  for(const [id,path] of goldenTracks)if(!path.length||path.at(-1).t<cutoff)goldenTracks.delete(id);
 },5000);
+
+// Fixed scene landmarks use the same world coordinates as the swimmers.
+const musselSite={x:.34,y:.69};
+function specialDestination(s,item,g,cycle){
+ if(s.type===BETTA&&item.sex==='雄'&&g.maturity>=1&&(!item.nest||cycle<13)){
+  return item.nest||{x:.23+.07*item.seed,y:.65+.03*item.seed};
+ }
+ if(s.type===BITTERLING&&garden.musselBrood?.parents.some(p=>p.id===s.fish.id)&&Date.now()-garden.musselBrood.laid<4500)return musselSite;
+ if(s.type===BANGGAI&&item.parents&&Date.now()-item.born<15000)return {x:zoneStart('reef')/width+.71,y:.70};
+ if(s.type===TRUMPETFISH&&cycle<15){
+  let host=null,best=260;
+  for(const peer of swimmers){
+   if(peer.type===TRUMPETFISH||peer.fish.habitat!=='reef'||peer.fish.kind!=='鱼类'||peer.length<s.length*.8)continue;
+   const distance=Math.hypot((s.x-peer.x)*width,(s.y-peer.y)*height);
+   if(distance<best){host=peer;best=distance;}
+  }
+  if(host){
+   const side=item.seed>.5?1:-1;
+   return {x:host.x+(Math.cos(host.angle)*9-side*Math.sin(host.angle)*23)/width,y:host.y+(Math.sin(host.angle)*9+side*Math.cos(host.angle)*23)/height,host};
+  }
+ }
+ return null;
+}
+function tendNest(s,item,site){
+ if(!item.nest)item.nest={x:site.x,y:site.y,count:0,last:0};
+ const n=item.nest,now=Date.now();
+ if(now-n.last>5200){n.count=Math.min(24,n.count+3);n.last=now;save();}
+ return now-n.last<1900;
+}
+function drawNurserySites(c){
+ if(garden.musselBrood||swimmers.some(s=>s.type===BITTERLING)){
+  c.save();c.translate(musselSite.x*width,musselSite.y*height);c.rotate(-.45);
+  for(let i=0;i<5;i++){
+   c.fillStyle=['#4b4839','#786b4c','#93835f','#ab9a74','#594e38'][i];
+   c.beginPath();c.ellipse(-i*.7,i*.55,19-i*2,10-i*1.7,0,0,Math.PI*2);c.fill();
+  }
+  for(let i=0;i<3;i++){
+   const t=(elapsed*.7+i/3)%1;c.strokeStyle='rgba(213,222,193,'+(.35*(1-t))+')';
+   c.beginPath();c.arc(11+t*10,-2,2+t*5,-.7,.7);c.stroke();
+  }
+  c.restore();
+ }
+ for(const s of swimmers){
+  const n=garden.fish[s.fish.id]?.nest;if(!n)continue;
+  for(let i=0;i<n.count;i++){
+   const a=i*2.4,r=2.2*Math.sqrt(i),x=n.x*width+r*Math.cos(a),y=n.y*height+r*Math.sin(a);
+   c.beginPath();c.arc(x,y,2.3,0,Math.PI*2);c.fillStyle='#c9e6cd80';c.fill();c.strokeStyle='#eaf6e0bd';c.lineWidth=.7;c.stroke();
+  }
+ }
+}

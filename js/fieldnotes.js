@@ -15,7 +15,21 @@ function habitLine(f,item){
  const count=item.sightings||0;
  return count>=3?'观察笔记 · '+individualHabits[disposition(f)].clue:'观察笔记 '+count+'/3 · '+(['bold','patient'].includes(disposition(f))?'撒饵时':'巡游时')+'轻点它，记录习性';
 }
+const speciesClues={
+ [BETTA]:'留意成年雄鱼在荷岸停下的位置。',
+ [BANGGAI]:'配对后再来看看雄鱼的嘴边。',
+ [AXOLOTL]:'在它吻前撒下几粒鱼粮。',
+ [TRUMPETFISH]:'留意它与身旁较大礁鱼的距离。',
+ [BITTERLING]:'配对时留意浅滩河蚌的开口。',
+ [CUTTLEFISH]:'等它贴底歇一会儿。',
+ [BUTTERFLY_FISH]:'在它身边撒几粒鱼粮。'
+};
 const speciesObservations={
+ [BETTA]:'雄鱼回到同一处水面，一口一口补上泡巢。',
+ [BANGGAI]:'雄鱼含卵护幼，幼鱼从父鱼嘴边游出。',
+ [AXOLOTL]:'食粒靠近吻端时，它短促张口，把食粒连水吸入。',
+ [TRUMPETFISH]:'它贴着较大的礁鱼并游，借同伴的轮廓掩护自己。',
+ [BITTERLING]:'雌鱼在活蚌开口处停驻，把卵产入蚌内。',
  [BUTTERFLY_FISH]:'它会朝落饵的细波转头，随后扑向波源。',
  [CUTTLEFISH]:'贴底歇息时，外套膜的深浅花纹会随脚下的底纹变化。'
 };

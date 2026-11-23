@@ -194,7 +194,7 @@ function fillAtlas(body){
    const f=visitorKinds[type]??itemInfo(type);
    const row=document.createElement('section');row.className='atlas-entry';row.innerHTML='<img src="'+f.image+'" alt=""><div><b>'+(type===0?'锦鲤':f.breed)+'</b><small>'+(f.marking||'蝌蚪经后肢期与幼蛙期长成池蛙。')+'</small></div>';
    if(speciesObservations[type]){
-    const detail=document.createElement('small');detail.textContent=garden.speciesNotes?.includes(type)?'物种手记 · '+speciesObservations[type]:type===CUTTLEFISH?'观察线索 · 等它贴底歇一会儿。':'观察线索 · 在它身边撒几粒鱼粮。';row.querySelector('div').append(detail);
+    const detail=document.createElement('small');detail.textContent=garden.speciesNotes?.includes(type)?'物种手记 · '+speciesObservations[type]:'观察线索 · '+speciesClues[type];row.querySelector('div').append(detail);
    }
    if(visitorKinds[type]){
     const details=document.createElement('small'),prefix=type+'/';

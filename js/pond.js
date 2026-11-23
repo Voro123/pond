@@ -111,7 +111,8 @@ function steer(s,dt,i){
  const hunger=1-fullness/100;
  const response=s.rippleResponse?.until>elapsed?s.rippleResponse:null;
  let meal=null,waiting=false,schooled=false,dist=(145+575*hunger*hunger)*(s.style==='bold'?1.35:1);
- const eligible=!response&&fullness<88 && Date.now()-(garden.fish[s.fish.id].biteAt||0)>650;
+ const item=garden.fish[s.fish.id];
+ const eligible=!item.brood&&!response&&fullness<88 && Date.now()-(garden.fish[s.fish.id].biteAt||0)>650;
  for(const p of food){
    if(!eligible||p.air>0||zoneAt(p.x*width)!==s.fish.habitat)continue;
    if(habit==='scrape'?p.kind!=='algae':p.kind!=='grain'&&habit!=='graze')continue;
@@ -151,20 +152,21 @@ function steer(s,dt,i){
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
- const target=wave||response?.target||partner||meal||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ const site=!response&&!partner&&!meal?specialDestination(s,item,g,cycle):null;
+ const target=wave||response?.target||partner||meal||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
- if(!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
+ if(!site&&!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
    const peers=swimmers.filter(other=>other!==s&&other.fish.breed===s.fish.breed);
    if(peers.length){const peer=peers.reduce((best,c)=>Math.hypot(c.x-s.x,c.y-s.y)<Math.hypot(best.x-s.x,best.y-s.y)?c:best);
     const dx=(peer.x-s.x)*width,dy=(peer.y-s.y)*height,d=Math.max(1,Math.hypot(dx,dy));
     schooled=d<145;vx+=Math.cos(peer.angle)*.7+dx/d*Math.min(3,d/80);vy+=Math.sin(peer.angle)*.7+dy/d*Math.min(3,d/80);}
  }
- for(const other of swimmers){if(other===s)continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
+ for(const other of swimmers){if(other===s||other===site?.host||partner&&type===BITTERLING)continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turnSpeed=wave||response?Math.max(65,s.speed):s.speed;
+ const turnSpeed=site||partner||wave||response?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));s.angle+=s.angular*dt;
@@ -193,6 +195,22 @@ function steer(s,dt,i){
   s.camouflage=clamp((s.camouflage||0)+(resting?dt*.95:-dt*.8),0,1);
   if(resting&&s.camouflage>.55)s.activity=s.speciesAction='贴底变纹';
  }
+ if(site||partner&&type===BITTERLING){
+  speed=Math.min(site?.host?site.host.speed+28:50,norm*1.2);
+  if(norm<20&&type===BETTA&&tendNest(s,item,site))s.speciesAction='补筑泡巢';
+  if(site?.host&&norm<40&&Math.cos(s.angle-site.host.angle)>.65)s.speciesAction='伴影潜行';
+  if(type===BITTERLING&&site&&norm<30&&item.sex==='雌')s.speciesAction='蚌口产卵';
+ }
+ if(type===BANGGAI){
+  if(item.brood){speed*=.42;s.activity='含卵护幼';}
+  if(s.releaseUntil>elapsed)s.speciesAction='释出幼鱼';
+ }
+ if(type===AXOLOTL&&meal&&dist<36&&Math.abs(diff)<.85){
+  const pull=1-Math.exp(-dt*8);meal.x+=(s.x-meal.x)*pull;meal.y+=(s.y-meal.y)*pull;
+  s.suctionUntil=elapsed+.55;speed=2;
+ }
+ if(s.suctionUntil>elapsed)s.speciesAction='张口吸食';
+ if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
  s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
@@ -277,6 +295,12 @@ function drawFish(s){
   ctx.restore();}
  else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
+ if(s.suctionUntil>elapsed||garden.fish[s.fish.id].brood){
+  ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle);
+  const size=Math.max(2,s.length*.045);
+  ctx.fillStyle=s.type===AXOLOTL?'#85474b':'#bba886';
+  ctx.beginPath();ctx.ellipse(-size,0,size*(.8+.18*Math.sin(elapsed*14)),size*1.25,0,0,Math.PI*2);ctx.fill();ctx.restore();
+ }
  if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(mid.x,mid.y-h*.65-9);
 }
 // Skin the spine in a local raster first. Every strip has the same transverse
@@ -354,7 +378,7 @@ function frame(ts){
    edge.addColorStop(.85,'#46371e00');edge.addColorStop(.89,'#36291688');edge.addColorStop(.91,'#10211666');edge.addColorStop(1,'#10211600');
    ctx.fillStyle=edge;ctx.fillRect(width-6,0,DECK+19,height);
  }
- drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
+ drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
  for(let i=ripples.length-1;i>=0;i--){ripples[i].age+=dt;if(ripples[i].age>3.2)ripples.splice(i,1);}
  const clock=gardenTime(),hour=clock.getUTCHours()+clock.getUTCMinutes()/60;
  const light=clamp(.65+Math.sin((hour-6)*Math.PI/12)*.65,.12,1);
