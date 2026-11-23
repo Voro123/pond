@@ -1,6 +1,11 @@
 "use strict";
 const SAVE_KEY="niwa.garden.v1";
 const ARCHIVE_KEY=SAVE_KEY+'.alternate';
+const GUIDE_KEY='niwa.guide.seen';
+const firstGardenVisit=(()=>{
+  try{return [GUIDE_KEY,SAVE_KEY,ARCHIVE_KEY].every(key=>localStorage.getItem(key)===null);}
+  catch{return false;}
+})();
 // A JSON null distinguishes an intentionally empty slot from a first visit.
 function isEmptySlot(){
   try{return localStorage.getItem(SAVE_KEY)==='null';}catch{return false;}

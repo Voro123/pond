@@ -55,3 +55,17 @@ dialog:has(.stall){width:min(660px,94vw);max-height:calc(100dvh - 32px);padding:
 
 #huntHud{position:fixed;right:32px;top:91px;z-index:3;display:flex;align-items:center;gap:10px;background:#14251ee8;backdrop-filter:blur(12px);padding:10px;border:1px solid #bfcca658;border-radius:10px}#huntHud img{width:63px;height:33px;object-fit:contain}#huntHud small,#huntHud strong{display:block}#huntHud small{font-size:10px;color:var(--green)}#huntHud strong{font:15px var(--serif)}#huntTimer{font:18px Georgia;color:#decb9b}#huntHud button{padding:3px}
 @media(max-width:700px){#huntHud{right:10px;top:68px;gap:5px;padding:6px}#huntHud img{width:33px}#huntHud strong{font-size:12px}}
+.header-actions{display:flex;align-items:center;gap:8px;margin-left:-4vw}
+.header-actions .sound{margin-left:0}
+#guideHelp{width:32px;height:32px;flex:none;border:1px solid #b2c2aa66;border-radius:50%;font:18px Georgia,serif;color:#e0e8d6}
+#guide{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;overflow:hidden}
+#guide::backdrop{background:transparent;backdrop-filter:none}
+.guide-shade,.guide-ring,.guide-card{position:absolute}
+.guide-shade{inset:0;background:#101010a6;backdrop-filter:grayscale(1);clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 0,var(--left) var(--top),var(--left) var(--bottom),var(--right) var(--bottom),var(--right) var(--top),var(--left) var(--top))}
+.guide-ring{left:var(--left);top:var(--top);right:calc(100% - var(--right));bottom:calc(100% - var(--bottom));border:2px solid #d7e7b9;border-radius:6px;box-shadow:0 0 12px #bacc9366}
+.guide-card{width:min(290px,calc(100% - 16px));padding:16px 18px;background:#19261f;border:1px solid #68795f;border-radius:10px;box-shadow:0 8px 28px #0005}
+.guide-card small{font-size:11px;color:var(--green)}.guide-card h2{margin-top:6px}.guide-card p{margin:7px 0 15px;line-height:1.65;color:#d3dccd}
+.guide-actions{display:flex;justify-content:space-between;align-items:center}.guide-actions button{padding:7px 12px;border-radius:6px}
+#guideSkip{color:#bdc8b8}#guideNext{background:#c9d9b6;color:#18251a}
+@media(max-width:700px){.header-actions{margin-left:0;gap:4px}#guideHelp{width:28px;height:28px}}
+@media(max-width:480px){.header-inner .crest{display:none}nav button i{display:none}.header-inner nav button{white-space:nowrap;padding-inline:1px}}
