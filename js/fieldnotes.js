@@ -16,6 +16,9 @@ function habitLine(f,item){
  return count>=3?'观察笔记 · '+individualHabits[disposition(f)].clue:'观察笔记 '+count+'/3 · '+(['bold','patient'].includes(disposition(f))?'撒饵时':'巡游时')+'轻点它，记录习性';
 }
 const speciesClues={
+ [MEDAKA]:'观察两尾青鳉靠近后怎样转向。',
+ [STRIPED_KILLIFISH]:'等它贴水静伏时，在吻前不远处投下鱼粮。',
+ [HATCHETFISH]:'换到拨水，在它身旁轻划一次。',
  [BETTA]:'留意成年雄鱼在荷岸停下的位置。',
  [BANGGAI]:'配对后再来看看雄鱼的嘴边。',
  [AXOLOTL]:'在它吻前撒下几粒鱼粮。',
@@ -25,6 +28,9 @@ const speciesClues={
  [BUTTERFLY_FISH]:'在它身边撒几粒鱼粮。'
 };
 const speciesObservations={
+ [MEDAKA]:'靠近同伴后，它调整朝向和间距，两尾鱼身后的细纹渐渐平行。',
+ [STRIPED_KILLIFISH]:'它在水面静候，附近有食粒落水，便突然一掠而出。',
+ [HATCHETFISH]:'近处水面受扰，它短跃离水，又在前方落回水中。',
  [BETTA]:'雄鱼回到同一处水面，一口一口补上泡巢。',
  [BANGGAI]:'雄鱼含卵护幼，幼鱼从父鱼嘴边游出。',
  [AXOLOTL]:'食粒靠近吻端时，它短促张口，把食粒连水吸入。',

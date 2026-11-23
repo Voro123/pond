@@ -18,6 +18,7 @@ const speciesRows=[
  ['青绿光鳃鱼','school',8,12,65],['镊口鱼','graze',19,20,450],['长吻鹰鱼','ambush',13,17,380],['镰鱼','glide',22,19,400],
  ['中华草龟','bask',20,16],['美西螈','bottom',22,18,160],['樱花虾','graze',3,6],['乌贼','dart',19,22,260],['蓝螯虾','night',14,14,80]
 ];
+const MEDAKA=7, HATCHETFISH=22, STRIPED_KILLIFISH=29;
 const BITTERLING=8, BETTA=17, BANGGAI=41, TRUMPETFISH=47, AXOLOTL=56;
 const BUTTERFLY_FISH=32, CUTTLEFISH=58;
 const TADPOLE=60, VISITOR=61, NERITE=62, SEA_STAR=63, BUTTERFLY=64, HERMIT_CRAB=65;
