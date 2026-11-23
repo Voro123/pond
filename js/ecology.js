@@ -12,11 +12,37 @@ function paintSeaStar(c){
   const a=i*Math.PI*2/5;c.beginPath();c.arc(d*Math.cos(a),d*Math.sin(a),1,0,Math.PI*2);c.fill();
  }
 }
-const starPortrait=document.createElement('canvas');starPortrait.width=starPortrait.height=48;
-const starContext=starPortrait.getContext('2d');starContext.translate(24,24);paintSeaStar(starContext);
+function paintButterfly(c,beat=1){
+ c.save();c.scale(1,beat);
+ for(const side of [-1,1]){
+  c.save();c.scale(1,side);c.strokeStyle='#785728';c.lineWidth=1.2;
+  for(const [x,y,rx,ry,tilt] of [[4,9,8,11,-.5],[-6,7,6,8,.35]]){
+   c.beginPath();c.ellipse(x,y,rx,ry,tilt,0,2*Math.PI);c.fillStyle='#f4cb66';c.fill();c.stroke();
+  }
+  c.fillStyle='#79502a';c.beginPath();c.arc(7,14,2,0,2*Math.PI);c.fill();c.restore();
+ }
+ c.fillStyle='#513c29';c.fillRect(-7,-1,16,2);c.restore();
+}
+function paintHermitCrab(c,stride=0){
+ c.lineWidth=2;c.lineCap='round';c.strokeStyle='#b9633d';
+ for(const side of [-1,1])for(let i=0;i<3;i++){
+  c.beginPath();c.moveTo(i*3,side*3);c.lineTo(i*3+4,side*(8+i));c.lineTo(i*3+1+stride,side*(12+i));c.stroke();
+ }
+ c.fillStyle='#c98050';c.beginPath();c.ellipse(9,0,7,6,0,0,2*Math.PI);c.fill();
+ for(const side of [-1,1]){c.fillStyle='#372f28';c.beginPath();c.arc(14,side*3,1.4,0,2*Math.PI);c.fill();}
+ c.fillStyle='#c2a17d';c.beginPath();c.ellipse(-4,0,12,9,-.3,0,2*Math.PI);c.fill();
+ c.strokeStyle='#79624e';c.beginPath();
+ for(let i=0;i<=40;i++){const a=i/4,r=7-i*.15;c.lineTo(-4+r*Math.cos(a),r*Math.sin(a));}c.stroke();
+}
+function visitorPortrait(paint){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=48;
+ const c=canvas.getContext('2d');c.translate(24,24);paint(c);return canvas.toDataURL();
+}
 const visitorKinds={
  [VISITOR]:{breed:'赤蜻',zone:'pond',image:fieldTextures[1],marking:'日间巡飞，偶尔落脚在荷岸。',gift:'每 45 秒为全庭添 1 庭玉'},
- [SEA_STAR]:{breed:'海星',zone:'reef',image:starPortrait.toDataURL(),marking:'伸展腕足，沿礁池浅沙缓行。',gift:'每 45 秒为两池所有饲养生物补充 2 点饱食度'}
+ [SEA_STAR]:{breed:'海星',zone:'reef',image:visitorPortrait(paintSeaStar),marking:'伸展腕足，沿礁池浅沙缓行。',gift:'每 45 秒为两池所有饲养生物补充 2 点饱食度'},
+ [BUTTERFLY]:{breed:'黄粉蝶',zone:'pond',image:visitorPortrait(paintButterfly),marking:'沿荷岸翻飞，间或合翅停栖。',gift:'两池鱼粮或藻屑每次被池养生物吃下时额外恢复 2 点饱食度，最高 100 点'},
+ [HERMIT_CRAB]:{breed:'寄居蟹',zone:'reef',image:visitorPortrait(paintHermitCrab),marking:'背着螺壳在浅沙上走走停停。',gift:'清理任一水域的杂物额外获得 1 庭玉'}
 };
 function currentVisit(now=Date.now()){
  const dayLength=DAY/RATE,day=Math.floor((now-garden.created)/dayLength);
@@ -25,11 +51,22 @@ function currentVisit(now=Date.now()){
  const start=day===0?garden.wildStart:garden.created+day*dayLength+sampleUnit(seed)*70000+5000;
  const age=(now-start)/1000;
  if(age<0||age>=150+sampleUnit(seed+'/stay')*75)return null;
- const type=garden.reef&&(garden.reefOpenedAt??garden.created)<=start&&sampleUnit(seed+'/shore')<.5?SEA_STAR:VISITOR;
+ const reef=garden.reef&&(garden.reefOpenedAt??garden.created)<=start&&sampleUnit(seed+'/shore')<.5;
+ const other=sampleUnit(seed+'/species')<.5;
+ const type=reef?(other?HERMIT_CRAB:SEA_STAR):(other?BUTTERFLY:VISITOR);
  return {type,day,start,age,...visitorKinds[type]};
 }
 function visitorState(now=Date.now()){
  const v=currentVisit(now);if(!v)return null;
+ if(v.type===HERMIT_CRAB){
+  const cycle=Math.floor(v.age/12),step=v.age%12,t=(cycle*8+Math.min(step,8))/28;
+  return {...v,x:zoneStart('reef')/width+.42+.08*Math.sin(t),y:.66+.04*Math.cos(t),heading:Math.atan2(-.04*height*Math.sin(t),.08*width*Math.cos(t)),status:step<8?'背壳漫步':'停步探沙'};
+ }
+ if(v.type===BUTTERFLY){
+  const cycle=Math.floor(v.age/10),step=v.age%10,t=cycle*7+Math.min(step,7);
+  const a=t*.31,b=t*.48;
+  return {...v,x:.27+.08*Math.sin(a),y:.61+.044*Math.sin(b),heading:Math.atan2(.044*.48*height*Math.cos(b),.08*.31*width*Math.cos(a)),status:step<7?'绕岸翻飞':'合翅停栖'};
+ }
  if(v.type===SEA_STAR)return {...v,x:zoneStart('reef')/width+.45+.028*Math.sin(v.age/38),y:.68+.018*Math.cos(v.age/46),heading:.2*Math.sin(v.age/38),status:'沿浅沙觅食'};
  const leg=Math.floor(v.age/8),time=v.age%8;
  function perch(i){const key=v.start+'/'+i;return [.20+.43*sampleUnit(key+'x'),.45+.23*sampleUnit(key+'y')];}
@@ -38,9 +75,11 @@ function visitorState(now=Date.now()){
  return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f-.045*Math.sin(Math.PI*f),heading:Math.atan2((by-ay-.045*Math.PI*Math.cos(Math.PI*f))*height,(bx-ax)*width),status:t===1?'落脚歇翅':'低飞巡猎'};
 }
 function drawVisitor(c,underwater){
- const v=visitorState();if(!v||(v.type===SEA_STAR)!==underwater)return;
+ const v=visitorState();if(!v||(v.zone==='reef')!==underwater)return;
  c.save();c.translate(v.x*width,v.y*height);c.rotate(v.heading);
- if(underwater){paintSeaStar(c);}
+ if(v.type===SEA_STAR)paintSeaStar(c);
+ else if(v.type===HERMIT_CRAB)paintHermitCrab(c,v.status==='背壳漫步'?2*Math.sin(v.age*5):0);
+ else if(v.type===BUTTERFLY)paintButterfly(c,v.status==='绕岸翻飞'?.65+.32*Math.sin(v.age*19):.32);
  else if(wildImage.naturalWidth){c.rotate(Math.PI);c.shadowColor='#18221c77';c.shadowBlur=3;c.shadowOffsetY=v.status==='低飞巡猎'?7:2;
  const h=42*wildImage.height/wildImage.width;c.drawImage(wildImage,-21,-h/2,42,h*(v.status==='低飞巡猎'?.85+.15*Math.sin(elapsed*52):1));}
  c.restore();
@@ -63,6 +102,7 @@ function observeVisitor(v){
 function settleVisitor(now){
  const v=currentVisit(now),hint=$('#visitorHint');hint.hidden=!v;if(!v)return;
  hint.textContent=(v.zone==='pond'?'荷岸':'礁池')+'来客 · '+v.breed+' ↗';hint.title=v.gift;
+ if(v.type!==VISITOR&&v.type!==SEA_STAR)return;
  const tick=Math.floor(v.age/45),key=v.start+'/'+tick;
  if(!tick||garden.visitorTick===key)return;
  garden.visitorTick=key;
@@ -81,7 +121,7 @@ function frogFullness(p,now=Date.now()){
 }
 function frogGrowth(p){
  const age=Math.max(0,(Date.now()-p.born)*RATE/3600000);
- const stage=age>=16&&p.meals>=3?3:age>=8&&p.meals>=2?2:age>=3&&p.meals>=1?1:0;
+ const stage=frogStage(p,age);
  const full=Math.round(frogFullness(p));
  const energy=Math.round(35+full*.47+p.seed*15);
  return {age,stage,full,energy,temper:p.seed>.65?'警觉':p.seed>.32?'好奇':'温和',length:((1.2+stage*.72)*(1+p.seed*.26)*traitScale(p.traits)).toFixed(1),label:['蝌蚪','后肢期','幼蛙','成蛙'][stage]};

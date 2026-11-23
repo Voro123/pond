@@ -80,12 +80,22 @@ function coloration(f){
   const item=garden.fish[f.id];
   return item.hatchery?'hue-rotate('+Math.round((item.seed-.5)*28)+'deg) saturate('+(.82+item.seed*.4)+')':'none';
 }
+function frogStage(p,age){
+ return age>=16&&p.meals>=3?3:age>=8&&p.meals>=2?2:age>=3&&p.meals>=1?1:0;
+}
+function chorusLayers(now=Date.now()){
+ const adults=Object.values(garden.amphibians).filter(p=>frogStage(p,(now-p.born)*RATE/3600000)===3);
+ return Math.min(3,adults.length);
+}
+function chorusText(){
+ return '荷岸蛙鸣 '+chorusLayers()+'/3 层 · 每留养一只成蛙，两池生物出售时多得 1 庭玉';
+}
 function appraisal(f){
   const item=garden.fish[f.id],g=growthOf(f);
   const rank=item.seed>=.96?3:item.seed>=.76?2:item.seed>=.39?1:0;
   const label=(item.type<6?["素锦","秀锦","上锦","珍品"]:["素品","秀品","上品","珍品"])[rank];
   const price=Math.round(offers[item.type].base*[1,1.35,1.9,3.2][rank]*(1+.05*item.care))*traitValue(item.traits);
-  return {price,rank,label,reveal:g.maturity>=1?label:g.maturity>=.5?(rank>=2?"鳞光初现":"花纹渐显"):"花色未定"};
+  return {price:price+chorusLayers(),rank,label,reveal:g.maturity>=1?label:g.maturity>=.5?(rank>=2?"鳞光初现":"花纹渐显"):"花色未定"};
 }
 function nourish(f,now=Date.now()){
   const item=garden.fish[f.id];
@@ -125,7 +135,7 @@ function feedIndividual(f,now=Date.now()){
  const item=garden.fish[f.id],m=metabolism(item,now);
  if(m.full>=88||now-(item.biteAt||0)<650)return false;
  markAdult(f,now);
- item.bodyDays=m.body;item.fullness=Math.min(100,m.full+19+item.seed*5);item.biteAt=item.metabolicAt=now;return true;
+ item.bodyDays=m.body;item.fullness=Math.min(100,m.full+19+item.seed*5+(currentVisit(now)?.type===BUTTERFLY?2:0));item.biteAt=item.metabolicAt=now;return true;
 }
 function grazeFilm(f,now){
  const item=garden.fish[f.id];

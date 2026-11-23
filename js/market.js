@@ -170,13 +170,13 @@ function switchZone(zone){
 }
 function habitatDialog(){
  const body=openDialog(garden.reef?'双池游览':'鱼池扩建');
- const raised=garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length;
+ const raised=garden.discovered.filter(n=>!visitorKinds[n]).length;
  if(!garden.reef){const requirement=document.createElement('p');requirement.className='market-info';requirement.textContent='扩建条件 · 养过 '+Math.min(raised,4)+' / 4 种生物　庭玉 '+garden.jade+' / '+REEF_COST;body.append(requirement);}
  for(const [zone,title,src] of [['pond','镜水庭',pondTextures[0]],['reef','潮间礁池',reefTexture]]){
   const locked=zone==='reef'&&!garden.reef,box=document.createElement('article');box.className='habitat';
   box.innerHTML='<img alt="" src="'+src+'"><div><h3>'+title+'</h3><small>'+(zone==='reef'?'海水 · 珊瑚与浅沙':'淡水 · 苔石与睡莲')+'　'+localStock(zone).length+' / '+CAPACITY+'</small></div>';
   const b=document.createElement('button');b.textContent=locked?'扩建 · '+REEF_COST+' 玉':garden.zone===zone?'当前水域':'前往';b.disabled=locked?(garden.jade<REEF_COST||raised<4):garden.zone===zone;
-  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length<4)return;garden.jade-=REEF_COST;garden.reef=true;garden.reefOpenedAt=Date.now();record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
+  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>!visitorKinds[n]).length<4)return;garden.jade-=REEF_COST;garden.reef=true;garden.reefOpenedAt=Date.now();record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
  }
  const visitor=visitorState();
  if(visitor){
@@ -187,7 +187,7 @@ function habitatDialog(){
 for(const b of document.querySelectorAll('#zoneJumps button'))b.onclick=()=>switchZone(b.dataset.zone);
 $('#zones').onclick=habitatDialog;$('#expandHabitat').onclick=habitatDialog;
 function fillAtlas(body){
- const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,VISITOR,SEA_STAR],known=new Set(garden.discovered);
+ const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,...Object.keys(visitorKinds).map(Number)],known=new Set(garden.discovered);
  const top=document.createElement('div');top.className='market-summary';top.innerHTML='<span>已记录 <b>'+known.size+' / '+groups.length+'</b></span><span>鱼类 <b>'+groups.filter(t=>t<55&&known.has(t)).length+' / 50</b></span>';body.append(top);
  const intro=document.createElement('p');intro.className='market-help';intro.textContent='养入新物种或观察野生访客可点亮图鉴；售出、放归和离世后仍保留记录。锦鲤的六种花色归在同一条目。';body.append(intro);
  for(const type of groups.filter(t=>known.has(t))){

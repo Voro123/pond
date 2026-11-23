@@ -95,7 +95,7 @@ const speciesRows=[
  ['青绿光鳃鱼','school',8,12,65],['镊口鱼','graze',19,20,450],['长吻鹰鱼','ambush',13,17,380],['镰鱼','glide',22,19,400],
  ['中华草龟','bask',20,16],['美西螈','bottom',22,18,160],['樱花虾','graze',3,6],['乌贼','dart',19,22,260],['蓝螯虾','night',14,14,80]
 ];
-const TADPOLE=60, VISITOR=61, NERITE=62, SEA_STAR=63;
+const TADPOLE=60, VISITOR=61, NERITE=62, SEA_STAR=63, BUTTERFLY=64, HERMIT_CRAB=65;
 function habitatOf(type){return (type>=33&&type<=54)||type===58?'reef':'pond';}
 function speciesKey(type){return type<6?0:type;}
 function lifeDays(type,seed){
@@ -207,12 +207,22 @@ function coloration(f){
   const item=garden.fish[f.id];
   return item.hatchery?'hue-rotate('+Math.round((item.seed-.5)*28)+'deg) saturate('+(.82+item.seed*.4)+')':'none';
 }
+function frogStage(p,age){
+ return age>=16&&p.meals>=3?3:age>=8&&p.meals>=2?2:age>=3&&p.meals>=1?1:0;
+}
+function chorusLayers(now=Date.now()){
+ const adults=Object.values(garden.amphibians).filter(p=>frogStage(p,(now-p.born)*RATE/3600000)===3);
+ return Math.min(3,adults.length);
+}
+function chorusText(){
+ return '荷岸蛙鸣 '+chorusLayers()+'/3 层 · 每留养一只成蛙，两池生物出售时多得 1 庭玉';
+}
 function appraisal(f){
   const item=garden.fish[f.id],g=growthOf(f);
   const rank=item.seed>=.96?3:item.seed>=.76?2:item.seed>=.39?1:0;
   const label=(item.type<6?["素锦","秀锦","上锦","珍品"]:["素品","秀品","上品","珍品"])[rank];
   const price=Math.round(offers[item.type].base*[1,1.35,1.9,3.2][rank]*(1+.05*item.care))*traitValue(item.traits);
-  return {price,rank,label,reveal:g.maturity>=1?label:g.maturity>=.5?(rank>=2?"鳞光初现":"花纹渐显"):"花色未定"};
+  return {price:price+chorusLayers(),rank,label,reveal:g.maturity>=1?label:g.maturity>=.5?(rank>=2?"鳞光初现":"花纹渐显"):"花色未定"};
 }
 function nourish(f,now=Date.now()){
   const item=garden.fish[f.id];
@@ -252,7 +262,7 @@ function feedIndividual(f,now=Date.now()){
  const item=garden.fish[f.id],m=metabolism(item,now);
  if(m.full>=88||now-(item.biteAt||0)<650)return false;
  markAdult(f,now);
- item.bodyDays=m.body;item.fullness=Math.min(100,m.full+19+item.seed*5);item.biteAt=item.metabolicAt=now;return true;
+ item.bodyDays=m.body;item.fullness=Math.min(100,m.full+19+item.seed*5+(currentVisit(now)?.type===BUTTERFLY?2:0));item.biteAt=item.metabolicAt=now;return true;
 }
 function grazeFilm(f,now){
  const item=garden.fish[f.id];
@@ -731,13 +741,13 @@ function switchZone(zone){
 }
 function habitatDialog(){
  const body=openDialog(garden.reef?'双池游览':'鱼池扩建');
- const raised=garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length;
+ const raised=garden.discovered.filter(n=>!visitorKinds[n]).length;
  if(!garden.reef){const requirement=document.createElement('p');requirement.className='market-info';requirement.textContent='扩建条件 · 养过 '+Math.min(raised,4)+' / 4 种生物　庭玉 '+garden.jade+' / '+REEF_COST;body.append(requirement);}
  for(const [zone,title,src] of [['pond','镜水庭',pondTextures[0]],['reef','潮间礁池',reefTexture]]){
   const locked=zone==='reef'&&!garden.reef,box=document.createElement('article');box.className='habitat';
   box.innerHTML='<img alt="" src="'+src+'"><div><h3>'+title+'</h3><small>'+(zone==='reef'?'海水 · 珊瑚与浅沙':'淡水 · 苔石与睡莲')+'　'+localStock(zone).length+' / '+CAPACITY+'</small></div>';
   const b=document.createElement('button');b.textContent=locked?'扩建 · '+REEF_COST+' 玉':garden.zone===zone?'当前水域':'前往';b.disabled=locked?(garden.jade<REEF_COST||raised<4):garden.zone===zone;
-  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length<4)return;garden.jade-=REEF_COST;garden.reef=true;garden.reefOpenedAt=Date.now();record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
+  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>!visitorKinds[n]).length<4)return;garden.jade-=REEF_COST;garden.reef=true;garden.reefOpenedAt=Date.now();record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
  }
  const visitor=visitorState();
  if(visitor){
@@ -748,7 +758,7 @@ function habitatDialog(){
 for(const b of document.querySelectorAll('#zoneJumps button'))b.onclick=()=>switchZone(b.dataset.zone);
 $('#zones').onclick=habitatDialog;$('#expandHabitat').onclick=habitatDialog;
 function fillAtlas(body){
- const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,VISITOR,SEA_STAR],known=new Set(garden.discovered);
+ const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,...Object.keys(visitorKinds).map(Number)],known=new Set(garden.discovered);
  const top=document.createElement('div');top.className='market-summary';top.innerHTML='<span>已记录 <b>'+known.size+' / '+groups.length+'</b></span><span>鱼类 <b>'+groups.filter(t=>t<55&&known.has(t)).length+' / 50</b></span>';body.append(top);
  const intro=document.createElement('p');intro.className='market-help';intro.textContent='养入新物种或观察野生访客可点亮图鉴；售出、放归和离世后仍保留记录。锦鲤的六种花色归在同一条目。';body.append(intro);
  for(const type of groups.filter(t=>known.has(t))){
@@ -791,11 +801,37 @@ function paintSeaStar(c){
   const a=i*Math.PI*2/5;c.beginPath();c.arc(d*Math.cos(a),d*Math.sin(a),1,0,Math.PI*2);c.fill();
  }
 }
-const starPortrait=document.createElement('canvas');starPortrait.width=starPortrait.height=48;
-const starContext=starPortrait.getContext('2d');starContext.translate(24,24);paintSeaStar(starContext);
+function paintButterfly(c,beat=1){
+ c.save();c.scale(1,beat);
+ for(const side of [-1,1]){
+  c.save();c.scale(1,side);c.strokeStyle='#785728';c.lineWidth=1.2;
+  for(const [x,y,rx,ry,tilt] of [[4,9,8,11,-.5],[-6,7,6,8,.35]]){
+   c.beginPath();c.ellipse(x,y,rx,ry,tilt,0,2*Math.PI);c.fillStyle='#f4cb66';c.fill();c.stroke();
+  }
+  c.fillStyle='#79502a';c.beginPath();c.arc(7,14,2,0,2*Math.PI);c.fill();c.restore();
+ }
+ c.fillStyle='#513c29';c.fillRect(-7,-1,16,2);c.restore();
+}
+function paintHermitCrab(c,stride=0){
+ c.lineWidth=2;c.lineCap='round';c.strokeStyle='#b9633d';
+ for(const side of [-1,1])for(let i=0;i<3;i++){
+  c.beginPath();c.moveTo(i*3,side*3);c.lineTo(i*3+4,side*(8+i));c.lineTo(i*3+1+stride,side*(12+i));c.stroke();
+ }
+ c.fillStyle='#c98050';c.beginPath();c.ellipse(9,0,7,6,0,0,2*Math.PI);c.fill();
+ for(const side of [-1,1]){c.fillStyle='#372f28';c.beginPath();c.arc(14,side*3,1.4,0,2*Math.PI);c.fill();}
+ c.fillStyle='#c2a17d';c.beginPath();c.ellipse(-4,0,12,9,-.3,0,2*Math.PI);c.fill();
+ c.strokeStyle='#79624e';c.beginPath();
+ for(let i=0;i<=40;i++){const a=i/4,r=7-i*.15;c.lineTo(-4+r*Math.cos(a),r*Math.sin(a));}c.stroke();
+}
+function visitorPortrait(paint){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=48;
+ const c=canvas.getContext('2d');c.translate(24,24);paint(c);return canvas.toDataURL();
+}
 const visitorKinds={
  [VISITOR]:{breed:'赤蜻',zone:'pond',image:fieldTextures[1],marking:'日间巡飞，偶尔落脚在荷岸。',gift:'每 45 秒为全庭添 1 庭玉'},
- [SEA_STAR]:{breed:'海星',zone:'reef',image:starPortrait.toDataURL(),marking:'伸展腕足，沿礁池浅沙缓行。',gift:'每 45 秒为两池所有饲养生物补充 2 点饱食度'}
+ [SEA_STAR]:{breed:'海星',zone:'reef',image:visitorPortrait(paintSeaStar),marking:'伸展腕足，沿礁池浅沙缓行。',gift:'每 45 秒为两池所有饲养生物补充 2 点饱食度'},
+ [BUTTERFLY]:{breed:'黄粉蝶',zone:'pond',image:visitorPortrait(paintButterfly),marking:'沿荷岸翻飞，间或合翅停栖。',gift:'两池鱼粮或藻屑每次被池养生物吃下时额外恢复 2 点饱食度，最高 100 点'},
+ [HERMIT_CRAB]:{breed:'寄居蟹',zone:'reef',image:visitorPortrait(paintHermitCrab),marking:'背着螺壳在浅沙上走走停停。',gift:'清理任一水域的杂物额外获得 1 庭玉'}
 };
 function currentVisit(now=Date.now()){
  const dayLength=DAY/RATE,day=Math.floor((now-garden.created)/dayLength);
@@ -804,11 +840,22 @@ function currentVisit(now=Date.now()){
  const start=day===0?garden.wildStart:garden.created+day*dayLength+sampleUnit(seed)*70000+5000;
  const age=(now-start)/1000;
  if(age<0||age>=150+sampleUnit(seed+'/stay')*75)return null;
- const type=garden.reef&&(garden.reefOpenedAt??garden.created)<=start&&sampleUnit(seed+'/shore')<.5?SEA_STAR:VISITOR;
+ const reef=garden.reef&&(garden.reefOpenedAt??garden.created)<=start&&sampleUnit(seed+'/shore')<.5;
+ const other=sampleUnit(seed+'/species')<.5;
+ const type=reef?(other?HERMIT_CRAB:SEA_STAR):(other?BUTTERFLY:VISITOR);
  return {type,day,start,age,...visitorKinds[type]};
 }
 function visitorState(now=Date.now()){
  const v=currentVisit(now);if(!v)return null;
+ if(v.type===HERMIT_CRAB){
+  const cycle=Math.floor(v.age/12),step=v.age%12,t=(cycle*8+Math.min(step,8))/28;
+  return {...v,x:zoneStart('reef')/width+.42+.08*Math.sin(t),y:.66+.04*Math.cos(t),heading:Math.atan2(-.04*height*Math.sin(t),.08*width*Math.cos(t)),status:step<8?'背壳漫步':'停步探沙'};
+ }
+ if(v.type===BUTTERFLY){
+  const cycle=Math.floor(v.age/10),step=v.age%10,t=cycle*7+Math.min(step,7);
+  const a=t*.31,b=t*.48;
+  return {...v,x:.27+.08*Math.sin(a),y:.61+.044*Math.sin(b),heading:Math.atan2(.044*.48*height*Math.cos(b),.08*.31*width*Math.cos(a)),status:step<7?'绕岸翻飞':'合翅停栖'};
+ }
  if(v.type===SEA_STAR)return {...v,x:zoneStart('reef')/width+.45+.028*Math.sin(v.age/38),y:.68+.018*Math.cos(v.age/46),heading:.2*Math.sin(v.age/38),status:'沿浅沙觅食'};
  const leg=Math.floor(v.age/8),time=v.age%8;
  function perch(i){const key=v.start+'/'+i;return [.20+.43*sampleUnit(key+'x'),.45+.23*sampleUnit(key+'y')];}
@@ -817,9 +864,11 @@ function visitorState(now=Date.now()){
  return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f-.045*Math.sin(Math.PI*f),heading:Math.atan2((by-ay-.045*Math.PI*Math.cos(Math.PI*f))*height,(bx-ax)*width),status:t===1?'落脚歇翅':'低飞巡猎'};
 }
 function drawVisitor(c,underwater){
- const v=visitorState();if(!v||(v.type===SEA_STAR)!==underwater)return;
+ const v=visitorState();if(!v||(v.zone==='reef')!==underwater)return;
  c.save();c.translate(v.x*width,v.y*height);c.rotate(v.heading);
- if(underwater){paintSeaStar(c);}
+ if(v.type===SEA_STAR)paintSeaStar(c);
+ else if(v.type===HERMIT_CRAB)paintHermitCrab(c,v.status==='背壳漫步'?2*Math.sin(v.age*5):0);
+ else if(v.type===BUTTERFLY)paintButterfly(c,v.status==='绕岸翻飞'?.65+.32*Math.sin(v.age*19):.32);
  else if(wildImage.naturalWidth){c.rotate(Math.PI);c.shadowColor='#18221c77';c.shadowBlur=3;c.shadowOffsetY=v.status==='低飞巡猎'?7:2;
  const h=42*wildImage.height/wildImage.width;c.drawImage(wildImage,-21,-h/2,42,h*(v.status==='低飞巡猎'?.85+.15*Math.sin(elapsed*52):1));}
  c.restore();
@@ -842,6 +891,7 @@ function observeVisitor(v){
 function settleVisitor(now){
  const v=currentVisit(now),hint=$('#visitorHint');hint.hidden=!v;if(!v)return;
  hint.textContent=(v.zone==='pond'?'荷岸':'礁池')+'来客 · '+v.breed+' ↗';hint.title=v.gift;
+ if(v.type!==VISITOR&&v.type!==SEA_STAR)return;
  const tick=Math.floor(v.age/45),key=v.start+'/'+tick;
  if(!tick||garden.visitorTick===key)return;
  garden.visitorTick=key;
@@ -860,7 +910,7 @@ function frogFullness(p,now=Date.now()){
 }
 function frogGrowth(p){
  const age=Math.max(0,(Date.now()-p.born)*RATE/3600000);
- const stage=age>=16&&p.meals>=3?3:age>=8&&p.meals>=2?2:age>=3&&p.meals>=1?1:0;
+ const stage=frogStage(p,age);
  const full=Math.round(frogFullness(p));
  const energy=Math.round(35+full*.47+p.seed*15);
  return {age,stage,full,energy,temper:p.seed>.65?'警觉':p.seed>.32?'好奇':'温和',length:((1.2+stage*.72)*(1+p.seed*.26)*traitScale(p.traits)).toFixed(1),label:['蝌蚪','后肢期','幼蛙','成蛙'][stage]};
@@ -1462,8 +1512,9 @@ function pickDebris(x,y){
  if(index<0)return false;
  const [item]=state.items.splice(index,1);state.nextAt=Math.max(Date.now()+65000,state.nextAt);state.cleared++;
  const name=['枯叶','断枝','浮藻'][item.kind];
- garden.jade+=1;record('清理'+name+'，获得 1 庭玉。');save();
- splash(x,y,.65);render();updateDebrisLabel();note('已清理'+name+' · +1 庭玉');return true;
+ const reward=currentVisit()?.type===HERMIT_CRAB?2:1;
+ garden.jade+=reward;record('清理'+name+'，获得 '+reward+' 庭玉。');save();
+ splash(x,y,.65);render();updateDebrisLabel();note('已清理'+name+' · +'+reward+' 庭玉');return true;
 }
 function updateDebrisLabel(){
  const n=garden.flotsam?.[garden.zone]?.items.length||0,button=$('#debrisHint');
@@ -1509,7 +1560,7 @@ function inspectFrog(id){
 }
 function openNursery(){
  const body=openDialog('荷岸蛙舍'),list=document.createElement('div');list.className='nursery-list';
- const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留养、出售或放归湿地。';body.append(intro,list);
+ const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留养、出售或放归湿地。';const chorus=document.createElement('p');chorus.textContent=chorusText();body.append(intro,chorus,list);
  for(const [id,p] of Object.entries(garden.amphibians)){
    const g=frogGrowth(p),row=document.createElement('article'),title=document.createElement('b');title.textContent=p.name+' · '+g.label;
    const stats=document.createElement('small');stats.textContent=traitText(p.traits)+' · '+g.temper+' · '+g.length+' cm · 饱食 '+g.full+'% · 活力 '+g.energy+'　水龄 '+g.age.toFixed(1)+' 小时　照料 '+p.meals+' 次'+(Date.now()-p.lastMeal<22000?'　刚刚吃饱':'');
@@ -1520,7 +1571,7 @@ function openNursery(){
  const adopt=document.createElement('button');adopt.className='primary-action';adopt.textContent='到鱼市查看本批生物';adopt.onclick=showMarket;body.append(adopt);
 }
 $('#nursery').onclick=openNursery;
-function frogPrice(p,release){return (release?18:20+Math.floor(p.seed*6))*traitValue(p.traits);}
+function frogPrice(p,release){return (release?18:20+Math.floor(p.seed*6))*traitValue(p.traits)+(release?0:chorusLayers());}
 function tradeFrog(id,release){
  const p=garden.amphibians[id];if(!p||frogGrowth(p).stage!==3)return;
  const price=frogPrice(p,release),action=release?'放归':'出售';
@@ -1543,7 +1594,7 @@ function paintFrogProfile(id,p){
   if(g.age<nextHours)needs.push('再过 '+(nextHours-g.age).toFixed(1)+' 池时');
   if(p.meals<=g.stage)needs.push('再进食 '+(g.stage+1-p.meals)+' 次');
  }
- const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:'',traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
+ const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
  for(const [key,value] of Object.entries(fields))$('#'+key).textContent=value;
  $('#peekImg').hidden=false;$('#peekImg').src=image;$('#peekName').textContent=p.name+' · '+g.label;
  $('.portrait').classList.remove('lustre');$('#portrait').style.filter='none';$('#portrait').src=image;

@@ -104,8 +104,9 @@ function pickDebris(x,y){
  if(index<0)return false;
  const [item]=state.items.splice(index,1);state.nextAt=Math.max(Date.now()+65000,state.nextAt);state.cleared++;
  const name=['枯叶','断枝','浮藻'][item.kind];
- garden.jade+=1;record('清理'+name+'，获得 1 庭玉。');save();
- splash(x,y,.65);render();updateDebrisLabel();note('已清理'+name+' · +1 庭玉');return true;
+ const reward=currentVisit()?.type===HERMIT_CRAB?2:1;
+ garden.jade+=reward;record('清理'+name+'，获得 '+reward+' 庭玉。');save();
+ splash(x,y,.65);render();updateDebrisLabel();note('已清理'+name+' · +'+reward+' 庭玉');return true;
 }
 function updateDebrisLabel(){
  const n=garden.flotsam?.[garden.zone]?.items.length||0,button=$('#debrisHint');

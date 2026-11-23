@@ -10,7 +10,7 @@ function inspectFrog(id){
 }
 function openNursery(){
  const body=openDialog('荷岸蛙舍'),list=document.createElement('div');list.className='nursery-list';
- const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留养、出售或放归湿地。';body.append(intro,list);
+ const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留养、出售或放归湿地。';const chorus=document.createElement('p');chorus.textContent=chorusText();body.append(intro,chorus,list);
  for(const [id,p] of Object.entries(garden.amphibians)){
    const g=frogGrowth(p),row=document.createElement('article'),title=document.createElement('b');title.textContent=p.name+' · '+g.label;
    const stats=document.createElement('small');stats.textContent=traitText(p.traits)+' · '+g.temper+' · '+g.length+' cm · 饱食 '+g.full+'% · 活力 '+g.energy+'　水龄 '+g.age.toFixed(1)+' 小时　照料 '+p.meals+' 次'+(Date.now()-p.lastMeal<22000?'　刚刚吃饱':'');
@@ -21,7 +21,7 @@ function openNursery(){
  const adopt=document.createElement('button');adopt.className='primary-action';adopt.textContent='到鱼市查看本批生物';adopt.onclick=showMarket;body.append(adopt);
 }
 $('#nursery').onclick=openNursery;
-function frogPrice(p,release){return (release?18:20+Math.floor(p.seed*6))*traitValue(p.traits);}
+function frogPrice(p,release){return (release?18:20+Math.floor(p.seed*6))*traitValue(p.traits)+(release?0:chorusLayers());}
 function tradeFrog(id,release){
  const p=garden.amphibians[id];if(!p||frogGrowth(p).stage!==3)return;
  const price=frogPrice(p,release),action=release?'放归':'出售';
@@ -44,7 +44,7 @@ function paintFrogProfile(id,p){
   if(g.age<nextHours)needs.push('再过 '+(nextHours-g.age).toFixed(1)+' 池时');
   if(p.meals<=g.stage)needs.push('再进食 '+(g.stage+1-p.meals)+' 次');
  }
- const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:'',traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
+ const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
  for(const [key,value] of Object.entries(fields))$('#'+key).textContent=value;
  $('#peekImg').hidden=false;$('#peekImg').src=image;$('#peekName').textContent=p.name+' · '+g.label;
  $('.portrait').classList.remove('lustre');$('#portrait').style.filter='none';$('#portrait').src=image;
