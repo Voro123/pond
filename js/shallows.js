@@ -90,21 +90,20 @@ function drawHabitatSprite(c,image,site,w,h,angle){
  c.globalAlpha*=image===baskingSprite?.83:.62;
  c.drawImage(image,-w/2,-h/2,w,h);c.restore();
 }
+const pondStructures=[
+ {types:[BASKING_TURTLE],image:baskingSprite,site:baskingStone,w:90,h:46,angle:-.24},
+ {types:[KUHLI,SLEEPER],image:creviceSprite,site:rockGap,w:66,h:45,angle:-.28},
+ {types:[PLECO,REDTAIL],image:woodSprite,site:sunkenWood,w:94,h:33,angle:.25}
+];
 function drawBottomHabitat(c){
- if(swimmers.some(s=>s.type===BASKING_TURTLE)){
-  drawHabitatSprite(c,baskingSprite,baskingStone,90,46,-.24);
- }
  const sand=swimmers.some(s=>[DOJO,KUHLI,PANDA_CORY,GUDGEON,STERLET].includes(s.type));
  if(sand){
   c.save();c.translate(sandBed.x*width,sandBed.y*height);c.scale(130,52);
   const wash=c.createRadialGradient(0,0,.2,0,0,1);wash.addColorStop(0,'#c4b48366');wash.addColorStop(1,'#c4b48300');
   c.fillStyle=wash;c.fillRect(-1,-1,2,2);c.restore();
  }
- if(swimmers.some(s=>s.type===KUHLI||s.type===SLEEPER)){
-  drawHabitatSprite(c,creviceSprite,rockGap,66,45,-.28);
- }
- if(swimmers.some(s=>s.type===PLECO||s.type===REDTAIL)){
-  drawHabitatSprite(c,woodSprite,sunkenWood,94,33,.25);
+ for(const r of pondStructures){
+  if(swimmers.some(s=>r.types.includes(s.type)))drawHabitatSprite(c,r.image,r.site,r.w,r.h,r.angle);
  }
  for(const [key,site] of Object.entries(spawningBeds)){
   const type=Number(key),brood=garden.bedBroods?.[type];

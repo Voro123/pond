@@ -132,7 +132,7 @@ function paddleWater(x,y,power,observationTap=false){
 }
 function steer(s,dt,i){
  const g=growthOf(s.fish),bodyScale=traitScale(garden.fish[s.fish.id].traits);s.length=(28+151*Math.pow(g.length/bodyScale/65,.7))*bodyScale;
- if(s.jump){advanceHatchetJump(s,dt);return;}
+ if(s.jump){s.freeSwimming=false;s.shoal=null;s.scatterUntil=0;advanceHatchetJump(s,dt);return;}
  const hx=s.x*width,hy=s.y*height,bank=zoneStart(s.fish.habitat)/width;
  const fullness=g.full,habit=s.fish.habit,seed=garden.fish[s.fish.id].seed;
  const hunger=1-fullness/100;
@@ -193,6 +193,17 @@ function steer(s,dt,i){
  const target=wave||response?.target||partner||foodTarget||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
+ s.freeSwimming=s.fish.kind==='鱼类'&&!site&&!response&&!partner&&!meal&&!wave&&!waiting&&!turnHome&&activityScale>=.5&&s.speed>8;
+ if(!s.freeSwimming){s.shoal=null;s.scatterUntil=0;}
+ const group=s.shoal,scattering=s.scatterUntil>elapsed;
+ if(scattering){
+  vx=Math.cos(s.scatterAngle);vy=Math.sin(s.scatterAngle);
+ }else if(group){
+  // Match headings and gently close gaps. Local avoidance below maintains spacing.
+  vx=.18*vx+Math.cos(group.angle)+clamp((group.x-s.x)*width/120,-.65,.65);
+  vy=.18*vy+Math.sin(group.angle)+clamp((group.y-s.y)*height/120,-.65,.65);
+  schooled=true;
+ }
  if(!site&&!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
    // Follow an earlier schoolmate so two neighbours cannot chase each other's heads.
    let peer=null,nearest=Infinity,canFollow=true;
@@ -204,7 +215,7 @@ function steer(s,dt,i){
     if(type===MEDAKA&&d>18&&d<105&&Math.cos(other.angle-s.angle)>.90&&s.speed>10&&other.speed>10)alignedSchool=true;
     if(canFollow&&d<nearest){nearest=d;peer=other;}
    }
-   if(peer){
+   if(peer&&!group&&!scattering){
     const weight=type===MEDAKA&&nearest<145?3.1:.7;
     vx+=Math.cos(peer.angle)*weight;vy+=Math.sin(peer.angle)*weight;
     const pull=clamp((nearest-42)/80,0,3)/Math.max(1,nearest);
@@ -250,6 +261,7 @@ function steer(s,dt,i){
    habit==='host'||habit==='school'?'独自巡游':activity[habit][0]));
  if(!response&&habit==='scrape'&&!meal&&activityScale>=.1&&fullness<55)grazeFilm(s.fish,Date.now());
  let speed=partner?62:meal?Math.min(40+95*hunger,22+dist*(.22+.48*hunger)):cruise*activityScale;
+ if(group){s.activity='结伴游动';s.signature=null;}
  if(s.style==='bold'&&meal)speed*=1.28;
  if(waiting&&!meal)speed*=.15;
  if(habit==='scrape')speed=Math.min(8,speed);
@@ -320,6 +332,7 @@ function steer(s,dt,i){
  if(type===TENCH&&meal&&meal.kind==='algae'&&dist<38&&Math.abs(diff)<.8){speed=Math.min(speed,18);s.speciesAction=shallowHabits[type][0];}
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
+ if(group)speed=.4*speed+.6*group.speed;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
  if(approaching&&norm<Math.max(65,s.length)&&!wave&&!settling){
   speed*=Math.max(precisionTurn?0:.24,Math.cos(diff));
@@ -513,7 +526,7 @@ function frame(ts){
    edge.addColorStop(.85,'#46371e00');edge.addColorStop(.89,'#36291688');edge.addColorStop(.91,'#10211666');edge.addColorStop(1,'#10211600');
    ctx.fillStyle=edge;ctx.fillRect(width-6,0,DECK+19,height);
  }
- drawBottomHabitat(ctx);drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
+ drawBottomHabitat(ctx);drawNurserySites(ctx);drawVisitor(ctx,true);drawTadpoles(dt);updateShoals();swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
  for(let i=ripples.length-1;i>=0;i--){ripples[i].age+=dt;if(ripples[i].age>3.2)ripples.splice(i,1);}
  const clock=gardenTime(),hour=clock.getUTCHours()+clock.getUTCMinutes()/60;
  const light=clamp(.65+Math.sin((hour-6)*Math.PI/12)*.65,.12,1);
