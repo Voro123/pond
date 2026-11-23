@@ -15,7 +15,15 @@ function habitLine(f,item){
  const count=item.sightings||0;
  return count>=3?'观察笔记 · '+individualHabits[disposition(f)].clue:'观察笔记 '+count+'/3 · '+(['bold','patient'].includes(disposition(f))?'撒饵时':'巡游时')+'轻点它，记录习性';
 }
+const speciesObservations={
+ [BUTTERFLY_FISH]:'它会朝落饵的细波转头，随后扑向波源。',
+ [CUTTLEFISH]:'贴底歇息时，外套膜的深浅花纹会随脚下的底纹变化。'
+};
 function witnessHabit(s){
+ if(s.speciesAction&&!garden.speciesNotes?.includes(s.type)){
+  (garden.speciesNotes??=[]).push(s.type);
+  record(s.fish.breed+' · '+speciesObservations[s.type]);note('物种手记 · '+speciesObservations[s.type]);save();return;
+ }
  if(s.fish.kind!=='鱼类'||!s.signature)return;
  const item=garden.fish[s.fish.id],now=Date.now();
  if((item.sightings||0)>=3||now-(item.lastSighting||0)<15000)return;
@@ -58,7 +66,7 @@ function incomeLine(f,item,now){
 function watchSelectedFish(){
  if(document.hidden||modal.open||$('aside').hidden||garden.focusFrog)return;
  const s=swimmers.find(o=>o.fish.id===garden.selected);
- if(!s?.signature)return;
+ if(!s?.signature&&!s?.speciesAction)return;
  const x=(s.x*width-cam.x)*zoom,y=(s.y*height-cam.y)*zoom;
  if(x>=0&&x<vw&&y>=0&&y<vh)witnessHabit(s);
 }

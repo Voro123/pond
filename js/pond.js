@@ -71,15 +71,19 @@ function syncSwimmers(){swimmers=koi.map((fish,i)=>{
 });}
 syncSwimmers();
 new ResizeObserver(sizeCanvas).observe(pond);sizeCanvas();
-function paddleWater(x,y,power){
+function paddleWater(x,y,power,observationTap=false){
  if(!waterPoint(x,y))return;
  splash(x,y,power);
  const zone=zoneAt(x*width),radius=power>1?210:160;
- if(zone==='pond')disturbTadpoles(x,y);
+ if(!observationTap&&zone==='pond')disturbTadpoles(x,y);
  for(const s of swimmers){
    if(!s.style||s.fish.habitat!==zone||s.rippleResponse?.readyAt>elapsed)continue;
    const dx=(s.x-x)*width,dy=(s.y-y)*height,d=Math.hypot(dx,dy);
    if(d>=radius)continue;
+   if(s.type===BUTTERFLY_FISH){
+     s.wave={x,y,start:elapsed};continue;
+   }
+   if(observationTap)continue;
    const profile=rippleResponses[s.style];
    let target={x:s.x+Math.cos(s.angle)*80/width,y:s.y+Math.sin(s.angle)*80/height};
    const away=d>0?Math.atan2(dy,dx):s.angle;
@@ -115,6 +119,12 @@ function steer(s,dt,i){
    if(s.style==='patient'&&elapsed-p.castAt<3){waiting=true;continue;}
    dist=d;meal=p;
  }
+ let wave=s.wave;
+ if(wave){
+  const time=elapsed-wave.start;
+  if(time>(wave.pellet?3.2:1.5)||wave.pellet&&!food.includes(wave.pellet)){s.wave=wave=null;}
+ }
+ if(wave){meal=wave.pellet&&fullness<88?wave.pellet:null;waiting=false;if(meal)dist=Math.hypot(meal.x*width-hx,meal.y*height-hy);}
  s.turnIn-=dt;
  if(!s.target||s.turnIn<0||Math.hypot(s.target.x*width-hx,s.target.y*height-hy)<65){
    let angle=s.angle+(Math.random()-.5)*1.9;
@@ -141,7 +151,7 @@ function steer(s,dt,i){
  const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
- const target=response?.target||partner||meal||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ const target=wave||response?.target||partner||meal||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
  if(!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
@@ -154,10 +164,10 @@ function steer(s,dt,i){
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
- const turnSpeed=response?Math.max(65,s.speed):s.speed;
+ const turnSpeed=wave||response?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
- s.angular+=(clamp(diff*1.8,-turn,turn)-s.angular)*(1-Math.exp(-dt*2.4));s.angle+=s.angular*dt;
+ s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));s.angle+=s.angular*dt;
  const cruise=24*s.fish.pace*(.84+.032*(type%11))*(.9+.17*Math.sin(elapsed*.85+i));
  const ranging=s.style==='wander'&&!turnHome&&activityScale>=.5;
  const personalAction=meal?s.style==='bold':waiting||returning||ranging;
@@ -171,13 +181,25 @@ function steer(s,dt,i){
  if(waiting&&!meal)speed*=.15;
  if(habit==='scrape')speed=Math.min(8,speed);
  if(response)speed=Math.min(response.profile.speed*response.strength,Math.max(0,norm-8)*1.6);
+ s.speciesAction=null;
+ if(wave){
+  const striking=meal&&elapsed-wave.start>.45&&Math.abs(diff)<.55;
+  speed=striking?Math.min(145,25+dist*1.2):0;
+  s.activity=striking?'循波扑食':'辨认水面细波';
+  if(striking)s.speciesAction=s.activity;
+  s.signature=null;
+ }else if(s.type===CUTTLEFISH){
+  const resting=!meal&&activityScale<.1;
+  s.camouflage=clamp((s.camouflage||0)+(resting?dt*.95:-dt*.8),0,1);
+  if(resting&&s.camouflage>.55)s.activity=s.speciesAction='贴底变纹';
+ }
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
  s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
  const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
- if(meal&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
+ if(meal&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
  poseFish(s,dt);
  s.wake-=dt;if(s.wake<=0 && s.speed>18){const tail=s.bones[SPINE_SEGMENTS];splash(tail.x/width,tail.y/height,.095);s.wake=1.6+Math.random()*.6;}
 }
@@ -203,6 +225,40 @@ function poseFish(s,dt){
  }
 }
 function pondActivity(f){return swimmers.find(s=>s.fish.id===f.id)?.activity||activity[f.habit][0];}
+// Sample the static seabed once. Local light variation selects mantle markings.
+let reefTones;
+function reefContrast(x,y){
+ if(!reefTones&&reefBackground.naturalWidth){
+  const map=document.createElement('canvas');map.width=128;map.height=72;
+  const c=map.getContext('2d');c.drawImage(reefBackground,0,0,128,72);
+  reefTones=c.getImageData(0,0,128,72).data;
+ }
+ if(!reefTones)return 0;
+ const col=clamp(Math.round(x*127),2,125),row=clamp(Math.round(y*71),2,69);
+ let min=255,max=0;
+ for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+  const i=((row+dy)*128+col+dx)*4,luma=.3*reefTones[i]+.59*reefTones[i+1]+.11*reefTones[i+2];
+  min=Math.min(min,luma);max=Math.max(max,luma);
+ }
+ return clamp((max-min-16)/45,0,1);
+}
+function mantlePatterns(s,img){
+ if(s.patternSource===img)return s.patterns;
+ s.patternSource=img;
+ s.patterns=[false,true].map(mottled=>{
+  const layer=document.createElement('canvas');layer.width=240;layer.height=Math.max(1,Math.round(240*img.height/img.width));
+  const c=layer.getContext('2d');c.drawImage(img,0,0,layer.width,layer.height);
+  c.globalCompositeOperation='source-atop';c.scale(layer.width,layer.height);
+  c.fillStyle=mottled?'rgba(122,100,76,.48)':'rgba(213,199,158,.60)';
+  c.beginPath();c.ellipse(.65,.5,.32,.31,0,0,Math.PI*2);c.fill();
+  if(mottled)for(let i=0;i<32;i++){
+   const a=i*2.4,r=Math.sqrt(i/32);c.fillStyle=i%2?'#bba98b':'#705f4a';
+   c.beginPath();c.ellipse(.65+.28*r*Math.cos(a),.5+.25*r*Math.sin(a),.021,.038,0,0,Math.PI*2);c.fill();
+  }
+  return layer;
+ });
+ return s.patterns;
+}
 function drawFish(s){
  if(!s.sprite.naturalWidth||!s.bones.length)return;
  const img=s.colored.width===s.sprite.width?s.colored:s.sprite,h=s.length*img.height/img.width;
@@ -212,7 +268,13 @@ function drawFish(s){
  traceGold(ctx,s.fish.id,garden.fish[s.fish.id].traits,tail.x,tail.y);ctx.save();ctx.translate(mid.x+7,mid.y+10);ctx.rotate(s.angle);
  const shadow=ctx.createRadialGradient(0,0,0,0,0,1);shadow.addColorStop(0,'#04191270');shadow.addColorStop(1,'#04191200');ctx.scale(s.length*.53,h*.36);ctx.fillStyle=shadow;ctx.fillRect(-1,-1,2,2);ctx.restore();
  ctx.globalAlpha=.94;
- if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);ctx.restore();}
+ if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);
+  if(s.type===CUTTLEFISH&&s.camouflage>0){
+   const [sand,reef]=mantlePatterns(s,img),contrast=reefContrast(mid.x/width-zoneStart('reef')/width,mid.y/height);
+   ctx.globalAlpha=s.camouflage;ctx.drawImage(sand,0,-h*.5,s.length,h);
+   ctx.globalAlpha=s.camouflage*contrast;ctx.drawImage(reef,0,-h*.5,s.length,h);
+  }
+  ctx.restore();}
  else drawContinuousBody(ctx,s,img,h);
  ctx.globalAlpha=1;
  if(!huntRun&&s.fish.id===garden.selected&&!garden.focusFrog)markAt(mid.x,mid.y-h*.65-9);
@@ -251,7 +313,13 @@ function cast(x,y,kind){
 function updateFood(dt){
  for(let i=food.length-1;i>=0;i--){
    const p=food[i];p.life-=dt;if(p.life<=0){food.splice(i,1);continue;}
-   if(p.air>0){p.air-=dt;if(p.air<=0)splash(p.x,p.y,.14+Math.random()*.1);}
+   if(p.air>0){p.air-=dt;if(p.air<=0){
+    splash(p.x,p.y,.14+Math.random()*.1);
+    if(p.kind==='grain'&&waterPoint(p.x,p.y,'pond'))for(const s of swimmers){
+     if(s.type===BUTTERFLY_FISH&&(!s.wave?.pellet||elapsed-s.wave.start>3.2)&&Math.hypot((s.x-p.x)*width,(s.y-p.y)*height)<190&&growthOf(s.fish).full<88)
+      s.wave={x:p.x,y:p.y,start:elapsed,pellet:p};
+    }
+   }}
    else{p.x+=(.9+p.vx+1.1*Math.sin(elapsed*.6+p.angle))*dt/width;p.y+=(p.vy+.65*Math.cos(elapsed*.5))*dt/height;p.vx*=Math.exp(-dt*.45);p.vy*=Math.exp(-dt*.45);}
    ctx.save();ctx.globalAlpha=Math.min(1,p.life/4);ctx.fillStyle='rgba(18,26,12,.32)';ctx.beginPath();ctx.ellipse(p.x*width+2,p.y*height+2,p.size*1.3,p.size*.65,0,0,Math.PI*2);ctx.fill();ctx.restore();
    if(p.air<=0)drawPellet(ctx,p);
@@ -321,7 +389,7 @@ function interact(x,y){
  const frog=zoneAt(x*width)==='pond'&&petAt(x,y);if(frog&&!huntRun){inspectFrog(frog);return;}
  let best=null,distance=Infinity;
  for(const s of swimmers)for(const b of s.bones){const d=Math.hypot(x*width-b.x,y*height-b.y);if(d<Math.max(14,s.length*.15)&&d<distance){best=s;distance=d;}}
- if(best){if(huntRun)huntCatch(best.fish);else{witnessHabit(best);selectFish(best.fish);}return;}splash(x,y,.7);
+ if(best){if(huntRun)huntCatch(best.fish);else{witnessHabit(best);selectFish(best.fish);}return;}paddleWater(x,y,.7,true);
 }
 let drag=null,pinch=null;
 const touches=new Map();
