@@ -15,8 +15,8 @@ function stockFor(hour=Math.floor(Date.now()/MARKET_HOUR)){
  const choose=(list,step,offset)=>list[(hour*step+salt+offset)%list.length];
  const common=[6,7,8,9,10,11,13,15,16,19];
  const pond=[12,14,17,18,20,21,22,...Array.from({length:6},(_,i)=>i)];
- const tropical=[23,24,25,26,27,28,29,30,31,32];
- const reef=Array.from({length:22},(_,i)=>33+i);
+ const tropical=[23,24,25,26,27,28,29,30,31,32,HILLSTREAM];
+ const reef=breeds.flatMap((f,type)=>f.habitat==='reef'&&f.kind==='鱼类'?[type]:[]);
  const specials=[TADPOLE,55,56,57,58,59,NERITE];
  const used=[choose(common,3,0),choose(pond,5,1),choose(tropical,3,7),choose(reef,5,2),choose(reef,5,11),choose(specials,1,3)];
  return used.map((type,i)=>{
@@ -201,7 +201,8 @@ for(const b of document.querySelectorAll('#zoneJumps button'))b.onclick=()=>swit
 $('#zones').onclick=habitatDialog;$('#expandHabitat').onclick=habitatDialog;
 function fillAtlas(body){
  const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,...Object.keys(visitorKinds).map(Number)],known=new Set(garden.discovered);
- const top=document.createElement('div');top.className='market-summary';top.innerHTML='<span>已记录 <b>'+known.size+' / '+groups.length+'</b></span><span>鱼类 <b>'+groups.filter(t=>t<55&&known.has(t)).length+' / 50</b></span>';body.append(top);
+ const fishes=groups.filter(type=>breeds[type]?.kind==='鱼类');
+ const top=document.createElement('div');top.className='market-summary';top.innerHTML='<span>已记录 <b>'+known.size+' / '+groups.length+'</b></span><span>鱼类 <b>'+fishes.filter(t=>known.has(t)).length+' / '+fishes.length+'</b></span>';body.append(top);
  const intro=document.createElement('p');intro.className='market-help';intro.textContent='养入新物种或观察野生访客可点亮图鉴；售出、放归和离世后仍保留记录。锦鲤的六种花色归在同一条目。';body.append(intro);
  for(const type of groups.filter(t=>known.has(t))){
    const f=visitorKinds[type]??itemInfo(type);

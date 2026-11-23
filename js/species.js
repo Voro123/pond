@@ -9,7 +9,7 @@ const activity={
  scrape:['沿石刮藻','在浅滩石面慢慢刮食藻膜，恢复少量饱食度，也会靠近投下的藻屑。',.25],
  host:['依巢群游','绕海葵小范围结伴巡游，离群后会主动靠拢。',.92]
 };
-const speciesRows=[
+const speciesRows=Object.fromEntries([
  ['珍珠金鱼','cruise',16,8,40],['青鳉','school',4,6],['彩石鲋','school',8,8],['泥鳅','bottom',18,7],['白云金丝','school',4,6],['沙塘鳢','ambush',12,10],['丁鱥','graze',45,14],['棒花鱼','bottom',12,8],['小体鲟','glide',80,24,680],
  ['霓虹灯鱼','school',4,7],['孔雀鱼','dart',5,7],['暹罗斗鱼','shelter',7,12,65],['虎皮鱼','school',7,9],['斑马鱼','dart',5,6],['熊猫鼠鱼','bottom',5,10],['胡子异型','graze',12,14,45],['银斧鱼','glide',6,11],['库利泥鳅','night',10,11],
  ['红尾黑鲨','shelter',15,14,60],['珍珠丝足鲈','cruise',12,12,45],['丽丽鱼','shelter',8,10],['神仙鱼','glide',15,16,120],['美丽彩虹鱼','school',11,13,75],['条纹鳉','dart',8,10],['巧克力娃娃','ambush',3,13,90],['荷兰凤凰','shelter',7,14,110],['非洲蝴蝶鱼','ambush',11,16,180],
@@ -17,15 +17,33 @@ const speciesRows=[
  ['蓑鲉','ambush',32,24,650],['长角箱鲀','cruise',23,20,720],['黄箱鲀','shelter',25,18,420],['条纹斑竹鲨','night',85,28,2400],['蓝点魟','glide',45,26,1800],['喇叭鱼','ambush',55,22,580],['雪花海鳝','night',65,23,880],['竖琴尾花鮨','school',13,16,240],['鸟嘴隆头鱼','dart',26,17,360],
  ['青绿光鳃鱼','school',8,12,65],['镊口鱼','graze',19,20,450],['长吻鹰鱼','ambush',13,17,380],['镰鱼','glide',22,19,400],
  ['中华草龟','bask',20,16],['美西螈','bottom',22,18,160],['樱花虾','graze',3,6],['乌贼','dart',19,22,260],['蓝螯虾','night',14,14,80]
-];
+].map((row,i)=>[i+6,row]));
+// 60–65 already identify the frog, nerite and visitors in saved gardens.
+const HILLSTREAM=66,WATCHMAN=67,SIXLINE=68,GRAMMA=69,CONVICT=70,GOATFISH=71;
+const PICASSO=72,LEOPARD_WRASSE=73,BLUEHEAD=74,FLAME_ANGEL=75,FILEFISH=76,BLENNY=77,BLACKTIP=78;
+Object.assign(speciesRows,{
+ [HILLSTREAM]:['网纹爬岩鳅','graze',6,9,55],
+ [WATCHMAN]:['黄色守望虾虎','shelter',10,10,85],
+ [SIXLINE]:['六线龙','dart',8,10,130],
+ [GRAMMA]:['皇家伽玛','shelter',8,11,150],
+ [CONVICT]:['条纹刺尾鱼','graze',24,17,290],
+ [GOATFISH]:['黑带副绯鲤','bottom',30,16,230],
+ [PICASSO]:['毕加索炮弹','cruise',28,19,350],
+ [LEOPARD_WRASSE]:['豹纹龙','bottom',15,14,210],
+ [BLUEHEAD]:['蓝头隆头鱼','dart',18,12,170],
+ [FLAME_ANGEL]:['火焰神仙','graze',12,13,320],
+ [FILEFISH]:['长吻单棘鲀','shelter',11,14,260],
+ [BLENNY]:['纹鳚','graze',14,11,95],
+ [BLACKTIP]:['黑鳍礁鲨','glide',150,32,2800]
+});
 const MEDAKA=7, HATCHETFISH=22, STRIPED_KILLIFISH=29;
 const BITTERLING=8, BETTA=17, BANGGAI=41, TRUMPETFISH=47, AXOLOTL=56;
 const BUTTERFLY_FISH=32, CUTTLEFISH=58;
 const TADPOLE=60, VISITOR=61, NERITE=62, SEA_STAR=63, BUTTERFLY=64, HERMIT_CRAB=65;
-function habitatOf(type){return (type>=33&&type<=54)||type===58?'reef':'pond';}
+function habitatOf(type){return (type>=33&&type<=54)||type===58||(type>=WATCHMAN&&type<=BLACKTIP)?'reef':'pond';}
 function speciesKey(type){return type<6?0:type;}
 function lifeDays(type,seed){
- const habit=type<6?'cruise':speciesRows[type-6]?.[1];
+ const habit=type<6?'cruise':speciesRows[type]?.[1];
  return Math.round((type<6?3000:habit==='bask'?4300:habit==='school'?490:habit==='night'?1150:820)*(.85+seed*.3));
 }
 

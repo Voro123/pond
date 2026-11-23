@@ -253,7 +253,7 @@ function steer(s,dt,i){
  vx+=avoidX*avoidance;vy+=avoidY*avoidance;
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
- const habitatSite=site||(partner&&spawningBeds[type])||(s.retreatUntil>elapsed&&response?.target);
+ const habitatSite=site||(type===HILLSTREAM&&meal)||(partner&&spawningBeds[type])||(s.retreatUntil>elapsed&&response?.target);
  const heading=rockDetour(s,Math.atan2(vy,vx),habitatSite,seed);
  const diff=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
@@ -324,6 +324,12 @@ function steer(s,dt,i){
  if(type===LIONFISH&&meal&&!partner&&dist<115&&Math.abs(diff)<.8){
   speed=dist>24?16:66;s.speciesAction=reefHabits[type][0];
  }
+ if(type===BLUEHEAD&&meal&&!partner&&elapsed-meal.castAt<4&&dist<130&&Math.abs(diff)<.7){
+  speed=Math.min(126,36+dist);s.speciesAction=reefHabits[type][0];
+ }
+ if(type===FLAME_ANGEL&&meal?.kind==='algae'&&!partner&&dist<30&&Math.abs(diff)<.85){
+  speed=Math.min(speed,11);s.speciesAction=reefHabits[type][0];
+ }
  if(type===BLUE_TANG&&meal&&!partner&&dist<160&&dist>14&&elapsed-meal.castAt<4){
   speed=Math.min(95,30+dist*.7);s.speciesAction=reefHabits[type][0];
  }
@@ -344,11 +350,15 @@ function steer(s,dt,i){
   if(handling){speed=0;s.speciesAction=shallowHabits[type][0];}
  }else if(bottomAction(s,site)){
   s.speciesAction=shallowHabits[type][0];
-  if(type===PLECO)speed=Math.min(speed,3);
+  if(type===PLECO||type===HILLSTREAM)speed=Math.min(speed,3);
  }
  if(type===CLOWNFISH&&response&&norm<42)s.speciesAction=shallowHabits[type][0];
  if(type===NERITE)updateScrapeTrail(s);
  if(type===TENCH&&meal&&meal.kind==='algae'&&dist<38&&Math.abs(diff)<.8){speed=Math.min(speed,18);s.speciesAction=shallowHabits[type][0];}
+ if(type===LEOPARD_WRASSE){
+  const buried=s.speciesAction===reefHabits[type][0];
+  s.sandCover=clamp((s.sandCover||0)+(buried?dt*.5:-dt),0,1);
+ }
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  if(group)speed=.4*speed+.6*group.speed;
@@ -447,7 +457,7 @@ function drawFish(s){
   ctx.stroke();ctx.restore();
  }
  const tucked=s.speciesAction&&(s.type===DOJO||s.type===KUHLI||s.type===FIREFISH);
- ctx.globalAlpha=tucked?.52:.94;
+ ctx.globalAlpha=tucked?.52:.94-.64*(s.sandCover||0);
  if(s.rigid){ctx.save();ctx.translate(s.x*width,s.y*height);ctx.rotate(s.angle+Math.PI);ctx.drawImage(img,0,-h*.5,s.length,h);
   if(s.type===CUTTLEFISH&&s.camouflage>0){
    const [sand,reef]=mantlePatterns(s,img),contrast=reefContrast(mid.x/width-zoneStart('reef')/width,mid.y/height);

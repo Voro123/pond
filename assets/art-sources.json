@@ -2,6 +2,39 @@
   "generator": "image_gen (built-in)",
   "assets": [
     {
+      "files": [
+        "species/66.webp",
+        "species/67.webp",
+        "species/68.webp",
+        "species/69.webp",
+        "species/70.webp",
+        "species/71.webp",
+        "species/72.webp",
+        "species/73.webp",
+        "species/74.webp",
+        "species/75.webp",
+        "species/76.webp",
+        "species/77.webp",
+        "species/78.webp"
+      ],
+      "subjects": [
+        "hillstream loach Sewellia lineolata, broad flat paired fins, reticulated olive pattern",
+        "yellow watchman goby, lemon yellow, pale blue spots",
+        "six-line wrasse, orange longitudinal stripes over violet body",
+        "royal gramma, purple front half and golden yellow rear half",
+        "convict tang, silver ivory with five dark vertical bands",
+        "spotted goatfish Parupeneus macronemus, reddish scales, chin barbels, black lateral band",
+        "picasso triggerfish Rhinecanthus aculeatus, tan body geometric blue and black face stripes",
+        "leopard wrasse Macropharyngodon meleagris female, pale body with dark leopard spots",
+        "bluehead wrasse terminal male, bright blue head and black white black collar",
+        "flame angelfish, vermilion with black bars and blue fin edges",
+        "longnose filefish Oxymonacanthus longirostris, teal with orange spots long narrow snout",
+        "lawnmower blenny Salarias fasciatus, mottled brown and tan, head cirri",
+        "blacktip reef shark, grey with black-tipped fins"
+      ],
+      "prompt": "One {subject}. Realistic natural-history game sprite viewed perfectly vertically downward on its dorsal back. Head points left, straight horizontal spine, tail at right. Both pectoral fins visible symmetrically. Show whole isolated animal and all fins, tightly framed, flat neutral daylight, no shadow, water, labels or props. Transparent background."
+    },
+    {
       "files": ["species/tench-dorsal.webp"],
       "prompt": "Create a realistic game sprite cutout of ONE common tench (Tinca tinca) for the top-down browser pond game 镜水庭. Strictly orthographic dorsal view directly above the dorsal midline looking vertically down into water (but render with no water). The fish is swimming straight; snout points LEFT, tail points RIGHT, the straight body midline exactly horizontal. Its left/right paired pectoral and pelvic fins are visibly balanced above and below this line in the image, and its dorsal fin is seen edge-on along the spine, so it reads immediately as dorsal view. No visible side profile, belly or flank-dominant pose. Realistic robust tapered olive-green and brown body, very fine olive scales, subtly bronzed fins, broad blunt snout, small copper eyes barely visible at either side of the head, a broad slightly rounded tail with a shallow notch. Soft broad neutral overhead light, natural-history realism, restrained contrast. Wide composition, fish fully contained with a comfortable clear margin around every fin. True transparent alpha background, no shadows, water, text, border or other objects."
     },

@@ -19,7 +19,7 @@ function rockDetour(s,angle,habitatSite,seed){
   const rx=(rock.site.x-s.x)*width,ry=(rock.site.y-s.y)*height;
   const radius=(rock===crevice?creviceRadius:rock.w*.5)+halfWidth+8;
   const visitsWood=rock===driftwood&&rock.types.includes(s.type);
-  const usesSurface=rock.reef||(rock.site===baskingStone&&s.type===BASKING_TURTLE)||(rock===spawningStone&&s.type===RAM);
+  const usesSurface=rock.reef||(rock.site===baskingStone&&rock.types.includes(s.type))||(rock===spawningStone&&s.type===RAM);
   if(habitatSite&&(visitsWood||usesSurface&&Math.hypot((rock.site.x-habitatSite.x)*width,(rock.site.y-habitatSite.y)*height)<rock.w*.65)){
    s.accessRock=rock;continue;
   }

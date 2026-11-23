@@ -17,11 +17,11 @@ const offers=[
   {cost:520,base:1404}, {cost:1200,base:3600},
   {cost:240,base:645}, {cost:180,base:437}
 ];
-speciesRows.forEach(([breed,habit,max,cost,marketCost=cost],i)=>{
- const type=i+6,profile=speciesCare[breed];
- breeds.push({id:'sp'+type,breed,habit,kind:i<49?'鱼类':['爬行类','两栖类','甲壳类','头足类','甲壳类'][i-49],nature:activity[habit][0],marking:activity[habit][1],pace:activity[habit][2],max,adult:profile.adultDays,care:profile,habitat:habitatOf(type),image:specimenTextures[i]});
- offers.push({cost:marketCost,base:Math.round(marketCost*2.5)});
-});
+for(const [key,[breed,habit,max,cost,marketCost=cost]] of Object.entries(speciesRows)){
+ const type=Number(key),profile=speciesCare[breed];
+ breeds[type]={id:'sp'+type,breed,habit,kind:['爬行类','两栖类','甲壳类','头足类','甲壳类'][type-55]??'鱼类',nature:activity[habit][0],marking:activity[habit][1],pace:activity[habit][2],max,adult:profile.adultDays,care:profile,habitat:habitatOf(type),image:specimenTextures[type]};
+ offers[type]={cost:marketCost,base:Math.round(marketCost*2.5)};
+}
 breeds[NERITE]={id:'sp62',breed:'斑马螺',kind:'腹足类',habit:'scrape',habitat:'pond',max:3,adult:speciesCare['斑马螺'].adultDays,care:speciesCare['斑马螺'],pace:.25,nature:'安静',marking:activity.scrape[1],image:neriteTexture};
 offers[NERITE]={cost:7,base:18};
 function inheritedSex(id,item){
@@ -59,7 +59,7 @@ function upgrade(data){
 function migrateCare(data,now){
  for(const item of Object.values(data.fish)){
   const type=item.type,def=breeds[type],end=Math.min(now,item.deathAt);
-  const oldDays=type<6?(item.starter||item.hatchery?oldMarketKoiGrowth[type]:oldKoiGrowth[type]):type===NERITE?2.8:2.4+speciesRows[type-6][3]*.09;
+  const oldDays=type<6?(item.starter||item.hatchery?oldMarketKoiGrowth[type]:oldKoiGrowth[type]):type===NERITE?2.8:2.4+speciesRows[type][3]*.09;
   const oldRate=(2.4+(type%7)*.23+item.seed*.45)/5;
   const previous=integrateGrowth(item,end,oldRate);
   if(def.kind==='鱼类'&&item.adultAt==null&&previous.body>=oldDays){

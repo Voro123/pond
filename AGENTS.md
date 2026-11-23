@@ -11,7 +11,7 @@
 
 ## 代码与素材
 
-- `js/species.js` 定义物种及行为类别，`js/model.js` 管理物种编号、贴图选择、生长和存档。物种编号保存在 `garden.fish[*].type`，编号 6 起按顺序对应 `assets/species/` 的数字贴图。丁鱥是 12 号，构建时使用 `assets/species/tench-dorsal.webp`。替换池内素材时也要检查 `sceneImage()` 是否为该物种选用了 `field-*.webp`。
+- `js/species.js` 定义物种及行为类别，`js/model.js` 管理物种编号、贴图选择、生长和存档。物种编号保存在 `garden.fish[*].type`，编号 6–59 和 66–78 按编号读取 `assets/species/` 的数字贴图，60–65 已分配给池蛙、斑马螺和访客。丁鱥是 12 号，构建时使用 `assets/species/tench-dorsal.webp`。替换池内素材时也要检查 `sceneImage()` 是否为该物种选用了 `field-*.webp`。
 - `js/pond.js` 的 `steer()` 计算移动和朝向，`poseFish()` 计算鱼身姿态，`drawFish()` 和 `drawContinuousBody()` 把鱼绘到 Canvas 2D。新鱼身素材采用正俯视，鱼头朝左、尾巴朝右，鱼身中轴保持水平。`js/water.js` 处理 WebGL 水面效果，`js/pond.js` 提供 Canvas 2D 回退。
 - `js/ecology.js` 处理蛙和访客，`js/pondlife.js` 处理繁殖与池中杂物，`js/market.js` 处理鱼市与水域，`js/fieldnotes.js` 处理观察和手记。`js/ui.js` 管理界面显示，`js/game.js` 组装交互和启动动画循环。
 - 存档使用浏览器 `localStorage`，主键为 `niwa.garden.v1`，备用槽为 `niwa.garden.v1.alternate`。测试旧档或构造指定物种时使用独立浏览器上下文，保留现有玩家存档。

@@ -9,6 +9,7 @@ const BASKING_TURTLE=55, CLOWNFISH=33;
 const shallowRestRadius={[BASKING_TURTLE]:14,[DOJO]:22};
 const baskingStone={x:.215,y:.69};
 const shallowHabits={
+ [HILLSTREAM]:['贴石缓移','在浅石靠水一侧观察它的胸鳍。','它张开宽鳍贴住浅石边缘，停留片刻，再沿石缘缓缓挪动。'],
  [BASKING_TURTLE]:['登石晒背','白天到荷岸等它爬上晒台。','它从水边慢慢爬上石面，停稳晒背，随后沿原路入水。'],
  [NERITE]:['刮过藻膜','观察螺身后刚刚经过的石面。','爬过有藻膜的石面时，身后留下一小段浅色刮痕。'],
  [12]:['贴底探食','在丁鱥附近的底面撒藻屑。','它贴底游近，吻部在藻屑旁轻轻拨起细沙。'],
@@ -35,6 +36,7 @@ function bottomDestination(s,seed,hour){
  const t=elapsed+seed*30;
  const offset=seed-.5;
  switch(s.type){
+ case HILLSTREAM:return {x:baskingStone.x+.016,y:baskingStone.y+.011*Math.sin(Math.floor(t/6)*1.7)};
  case BASKING_TURTLE:
   if(hour<7||hour>=19)return {x:baskingStone.x+.055,y:baskingStone.y-.008};
   return t%46<30?baskingStone:{x:baskingStone.x+.042,y:baskingStone.y-.014};
@@ -104,7 +106,7 @@ function creviceEntrance(s){
  return {x:rockGap.x+ux*offset/width,y:rockGap.y+uy*offset/height};
 }
 const pondStructures=[
- {types:[BASKING_TURTLE],image:baskingSprite,site:baskingStone,w:90,h:46,angle:-.24},
+ {types:[BASKING_TURTLE,HILLSTREAM],image:baskingSprite,site:baskingStone,w:90,h:46,angle:-.24},
  crevice,
  driftwood
 ];
