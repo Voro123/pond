@@ -6,6 +6,7 @@ const spawningBeds={
  [ANGEL]:{x:.36,y:.55},[RAM]:{x:.56,y:.61}
 };
 const BASKING_TURTLE=55, CLOWNFISH=33;
+const shallowRestRadius={[BASKING_TURTLE]:14,[DOJO]:22};
 const baskingStone={x:.215,y:.69};
 const shallowHabits={
  [BASKING_TURTLE]:['登石晒背','白天到荷岸等它爬上晒台。','它从水边慢慢爬上石面，停稳晒背，随后沿原路入水。'],
@@ -61,7 +62,8 @@ function bottomAction(s,site){
  case REDTAIL:return d<43&&s.speed>4;
  case SLEEPER:return false;
  case RAM:case ANGEL:return d<30;
- case BASKING_TURTLE:return site===baskingStone&&d<14;
+ case BASKING_TURTLE:return site===baskingStone&&d<shallowRestRadius[s.type];
+ case DOJO:return d<shallowRestRadius[s.type];
  default:return d<22;
  }
 }

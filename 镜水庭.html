@@ -375,6 +375,7 @@ const spawningBeds={
  [ANGEL]:{x:.36,y:.55},[RAM]:{x:.56,y:.61}
 };
 const BASKING_TURTLE=55, CLOWNFISH=33;
+const shallowRestRadius={[BASKING_TURTLE]:14,[DOJO]:22};
 const baskingStone={x:.215,y:.69};
 const shallowHabits={
  [BASKING_TURTLE]:['登石晒背','白天到荷岸等它爬上晒台。','它从水边慢慢爬上石面，停稳晒背，随后沿原路入水。'],
@@ -430,7 +431,8 @@ function bottomAction(s,site){
  case REDTAIL:return d<43&&s.speed>4;
  case SLEEPER:return false;
  case RAM:case ANGEL:return d<30;
- case BASKING_TURTLE:return site===baskingStone&&d<14;
+ case BASKING_TURTLE:return site===baskingStone&&d<shallowRestRadius[s.type];
+ case DOJO:return d<shallowRestRadius[s.type];
  default:return d<22;
  }
 }
@@ -1630,10 +1632,14 @@ function steer(s,dt,i){
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
- const turnSpeed=site||partner||wave||response||inspecting||type===STRIPED_KILLIFISH&&meal?Math.max(65,s.speed):s.speed;
+ const restRadius=shallowRestRadius[type];
+ const turnSpeed=site||partner||wave||response||inspecting||(type===STRIPED_KILLIFISH||restRadius)&&meal?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
- s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));s.angle+=s.angular*dt;
+ const restingAtSite=site&&restRadius&&norm<restRadius;
+ if(restingAtSite)s.angular=0;
+ else s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));
+ s.angle+=s.angular*dt;
  const cruise=24*s.fish.pace*(.84+.032*(type%11))*(.9+.17*Math.sin(elapsed*.85+i));
  const ranging=s.style==='wander'&&!turnHome&&activityScale>=.5;
  const personalAction=meal?s.style==='bold':waiting||returning||ranging;
@@ -1714,7 +1720,9 @@ function steer(s,dt,i){
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
- s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
+ if(restRadius&&(site||meal)&&!partner)speed*=Math.max(0,Math.cos(diff));
+ if(restingAtSite)s.speed=0;
+ else s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
  const nextX=s.x+Math.cos(s.angle)*s.speed*dt/width,nextY=s.y+Math.sin(s.angle)*s.speed*dt/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
