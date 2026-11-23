@@ -1616,18 +1616,34 @@ function steer(s,dt,i){
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
  if(!site&&!response&&!partner&&!meal&&(habit==='host'||habit==='school')){
-   const peers=swimmers.filter(other=>other!==s&&other.fish.breed===s.fish.breed);
-   if(peers.length){const peer=peers.reduce((best,c)=>Math.hypot(c.x-s.x,c.y-s.y)<Math.hypot(best.x-s.x,best.y-s.y)?c:best);
-    const dx=(peer.x-s.x)*width,dy=(peer.y-s.y)*height,d=Math.max(1,Math.hypot(dx,dy));
-    schooled=d<145;
-    if(type===MEDAKA&&schooled){
-     const weight=2.4;
-     vx+=Math.cos(peer.angle)*weight;vy+=Math.sin(peer.angle)*weight;
-     alignedSchool=d>18&&d<105&&Math.cos(peer.angle-s.angle)>.90&&s.speed>10&&peer.speed>10;
-    }
-    vx+=Math.cos(peer.angle)*.7+dx/d*Math.min(3,d/80);vy+=Math.sin(peer.angle)*.7+dy/d*Math.min(3,d/80);}
+   // Follow an earlier schoolmate so two neighbours cannot chase each other's heads.
+   let peer=null,nearest=Infinity,canFollow=true;
+   for(const other of swimmers){
+    if(other===s){canFollow=false;continue;}
+    if(other.fish.breed!==s.fish.breed)continue;
+    const d=Math.hypot((other.x-s.x)*width,(other.y-s.y)*height);
+    if(d<145)schooled=true;
+    if(type===MEDAKA&&d>18&&d<105&&Math.cos(other.angle-s.angle)>.90&&s.speed>10&&other.speed>10)alignedSchool=true;
+    if(canFollow&&d<nearest){nearest=d;peer=other;}
+   }
+   if(peer){
+    const weight=type===MEDAKA&&nearest<145?3.1:.7;
+    vx+=Math.cos(peer.angle)*weight;vy+=Math.sin(peer.angle)*weight;
+    const pull=clamp((nearest-42)/80,0,3)/Math.max(1,nearest);
+    vx+=(peer.x-s.x)*width*pull;vy+=(peer.y-s.y)*height*pull;
+   }
  }
- for(const other of swimmers){if(other===s||other===site?.host||partner&&(type===BITTERLING||spawningBeds[type]))continue;const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);if(d<65&&d>0){vx+=dx/d*(1-d/65)*.8;vy+=dy/d*(1-d/65)*.8;}}
+ // Limit the combined avoidance from a crowd so it cannot reverse a fish's course.
+ let avoidX=0,avoidY=0,stationOccupied=false;
+ for(const other of swimmers){
+  if(other===s||other===site?.host||partner&&(type===BITTERLING||spawningBeds[type]))continue;
+  const dx=hx-other.x*width,dy=hy-other.y*height,d=Math.hypot(dx,dy);
+  if(site===target&&!site.host&&other.speed<3&&d<Math.max(16,s.length*.25)
+   &&Math.hypot((other.x-target.x)*width,(other.y-target.y)*height)<norm)stationOccupied=true;
+  if(d>0&&d<65){avoidX+=dx/d*(1-d/65);avoidY+=dy/d*(1-d/65);}
+ }
+ const avoidance=.8/Math.max(1,Math.hypot(avoidX,avoidY));
+ vx+=avoidX*avoidance;vy+=avoidY*avoidance;
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const diff=Math.atan2(Math.sin(Math.atan2(vy,vx)-s.angle),Math.cos(Math.atan2(vy,vx)-s.angle));
@@ -1635,12 +1651,16 @@ function steer(s,dt,i){
  const restRadius=shallowRestRadius[type];
  const homing=turnHome&&!site&&!partner&&!meal&&!response&&!wave;
  const approaching=site||partner||wave||response||meal||homing;
- const turnSpeed=approaching?Math.max(65,s.speed):s.speed;
+ const precisionTurn=meal||wave||response||restRadius&&site||partner;
+ const turnSpeed=precisionTurn?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
- const restingAtSite=(site===target&&!site.host||homing)&&norm<(restRadius||8);
+ const restingAtSite=(site===target&&!site.host||homing)&&norm<(restRadius||(homing?42:12));
+ // A hovering fish can adjust a short distance to a nearby station without a U-turn.
+ const settling=!precisionTurn&&(homing||site===target&&!site.host)&&norm<Math.max(32,s.length*.65);
+ const holding=restingAtSite||settling&&stationOccupied;
  const previousAngle=s.angle;
- if(restingAtSite)s.angular=0;
+ if(restingAtSite||settling)s.angular=0;
  else s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));
  s.angle+=s.angular*dt;
  const cruise=24*s.fish.pace*(.84+.032*(type%11))*(.9+.17*Math.sin(elapsed*.85+i));
@@ -1723,14 +1743,17 @@ function steer(s,dt,i){
  if(s.speciesAction){s.signature=null;s.activity=s.speciesAction;}
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
- if(approaching&&norm<Math.max(65,s.length)&&!wave)speed*=Math.max(0,Math.cos(diff));
+ if(approaching&&norm<Math.max(65,s.length)&&!wave&&!settling){
+  speed*=Math.max(precisionTurn?0:.24,Math.cos(diff));
+ }
  if(homing)speed=Math.min(speed,norm);
- if(restingAtSite)s.speed=0;
+ if(holding)s.speed=0;
  else s.speed+=(speed-s.speed)*(1-Math.exp(-dt*(response?3.4:1.6)));
  // Positions track the mouth for feeding. Move it around a pivot inside the body on turns.
  const pivot=Math.min(s.length*.34,norm*.4);
- const nextX=s.x+(Math.cos(s.angle)*s.speed*dt+pivot*(Math.cos(s.angle)-Math.cos(previousAngle)))/width;
- const nextY=s.y+(Math.sin(s.angle)*s.speed*dt+pivot*(Math.sin(s.angle)-Math.sin(previousAngle)))/height;
+ const travelAngle=settling?Math.atan2(target.y*height-hy,target.x*width-hx):s.angle;
+ const nextX=s.x+(Math.cos(travelAngle)*s.speed*dt+pivot*(Math.cos(s.angle)-Math.cos(previousAngle)))/width;
+ const nextY=s.y+(Math.sin(travelAngle)*s.speed*dt+pivot*(Math.sin(s.angle)-Math.sin(previousAngle)))/height;
  if(!response||waterPoint(nextX,nextY,s.fish.habitat)){s.x=nextX;s.y=nextY;}
  s.phase=(s.phase+dt*(.9+s.speed*.105))%(Math.PI*2);
  if(meal&&foodTarget===meal&&!handling&&(!wave||s.speciesAction)&&dist<10&&feedIndividual(s.fish)){eatGrain(meal);save();const cared=nourish(s.fish);if(cared)record('「'+s.fish.breed+'」得到一次照料。');if(!meal.batch.has(s.fish.id)){meal.batch.add(s.fish.id);record('「'+s.fish.breed+'」游来吃下了鱼食。');save();}}
