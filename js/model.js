@@ -79,7 +79,7 @@ function migrateCare(data,now){
 function initialState(now){
  const startingAge=koiCare.adultDays-1;
  const f=individual(0,now-startingAge*DAY/RATE,.44);f.metabolicAt=now;f.bodyDays=startingAge;f.fullness=27;f.starter=true;
- return {version:4,created:now,jade:0,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。'}]};
+ return {version:4,created:now,jade:100,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。'}]};
 }
 function validGarden(data){
   return data && [1,2,3,4].includes(data.version) && Number.isFinite(data.created) && Array.isArray(data.events) && Array.isArray(data.favorites);
