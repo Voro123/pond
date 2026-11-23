@@ -11,6 +11,12 @@ for(const f of koi.filter(f=>f.habitat===garden.zone)){
   const button=document.createElement('button');button.className="tile";button.innerHTML='<img alt="" src="'+f.image+'"><span>'+f.breed+'</span>';
   button.querySelector("img").style.filter=coloration(f);button.onclick=()=>selectFish(f);$('#fishList').append(button);tiles.set(f.id,button);
 }
+ if(garden.zone==='pond'&&typeof frogGrowth==='function')for(const [id,p] of Object.entries(garden.amphibians)){
+  const button=document.createElement('button');button.className='tile';button.innerHTML='<img alt=""><span></span>';
+  button.firstChild.src=frogTextures[frogGrowth(p).stage];button.lastChild.textContent=p.name;button.onclick=()=>inspectFrog(id);
+  $('#fishList').append(button);tiles.set(id,button);
+ }
+
 }
 buildTiles();
 function current(){return koi.find(f=>f.id===garden.selected);}
@@ -24,11 +30,21 @@ function render(){
   $('#clock').textContent=gardenTime().toISOString().slice(11,16);
   $('#peekImg').hidden=!current();$('#peekName').textContent=current()?.breed??'池中名册';
   if(current() && $('#peekImg').getAttribute('src')!==current().image)$('#peekImg').src=current().image;
-  if(typeof paintFocus==='function'){paintFocus();}
-  const empty=!current();
+  const frog=garden.amphibians[garden.focusFrog],frogSelected=frog&&typeof paintFrogProfile==='function';
+  const selected=frogSelected?garden.focusFrog:garden.selected,fav=garden.favorites.includes(selected);
+  const empty=!current()&&!frogSelected;
   $('.profile').hidden=empty;$('#marker').hidden=empty;
   if(empty)return;
-  const f=current(),g=growthOf(f),fav=garden.favorites.includes(f.id);
+  $('#follow span').textContent=fav?'已关注':'关注';$('#follow').classList.toggle('on',fav);$('#follow').setAttribute('aria-pressed',fav);
+  for(const [id,el] of tiles){
+   const p=garden.amphibians[id];
+   el.classList.toggle('selected',id===selected);el.classList.toggle('fav',garden.favorites.includes(id));el.setAttribute('aria-pressed',id===selected);
+   if(p){const stage=frogGrowth(p).stage;el.classList.toggle('adult',stage===3);if(el.firstChild.getAttribute('src')!==frogTextures[stage])el.firstChild.src=frogTextures[stage];}
+   else el.classList.toggle('adult',growthOf(koi.find(fish=>fish.id===id)).maturity===1);
+  }
+  if(frogSelected){paintFrogProfile(selected,frog);return;}
+  $('#releaseFish').disabled=false;$('#releaseFish').textContent='放生 · 免费';
+  const f=current(),g=growthOf(f);
   const value=appraisal(f),item=garden.fish[f.id];
   $('.portrait').classList.toggle('lustre',value.rank>=2&&g.maturity>=.5);
   $('#hunger').textContent=Math.round(g.full)+'% · '+(g.full>=88?'饱足':g.full>=55?'温饱':g.full>=25?'微饿':'饥饿');
@@ -46,12 +62,10 @@ function render(){
   $('#incomeInfo').textContent=incomeLine(f,item,now);
   $('#nature').textContent=f.nature;$('#phase').textContent=g.phase+' · '+Math.floor(g.maturity*100)+'%';
   $('#progress').style.width=(g.maturity*100)+'%';$('#marker').textContent=(fav?'★ ':'◇ ')+f.breed;
-  $('#follow span').textContent=fav?'已关注':'关注';$('#follow').classList.toggle('on',fav);$('#follow').setAttribute('aria-pressed',fav);
-  for(const [id,el] of tiles){el.classList.toggle('selected',id===f.id);el.classList.toggle('fav',garden.favorites.includes(id));el.setAttribute('aria-pressed',id===f.id);el.classList.toggle('adult',growthOf(koi.find(fish=>fish.id===id)).maturity===1);}
   $('#clock').textContent=gardenTime().toISOString().slice(11,16);
 }
 $('#follow').onclick=()=>{
-  const f=current();if(garden.favorites.includes(f.id))garden.favorites=garden.favorites.filter(id=>id!==f.id);
+  const frog=garden.amphibians[garden.focusFrog],f=frog?{id:garden.focusFrog,breed:frog.name}:current();if(garden.favorites.includes(f.id))garden.favorites=garden.favorites.filter(id=>id!==f.id);
   else {garden.favorites.push(f.id);record("开始关注「"+f.breed+"」。");}save();render();
 };
 let mode='observe';

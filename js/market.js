@@ -124,7 +124,7 @@ function releaseFish(){
   if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
  };
 }
-$('#releaseFish').onclick=releaseFish;
+$('#releaseFish').onclick=()=>garden.focusFrog?tradeFrog(garden.focusFrog,true):releaseFish();
 function offerSale(){
   const f=current();if(!f||growthOf(f).maturity<1)return;
   const id=f.id,value=appraisal(f);
@@ -138,7 +138,7 @@ function offerSale(){
     record('售出'+value.label+'「'+f.breed+'」，收入 '+price+' 庭玉。');refreshPopulation();save();modal.close();note('「'+f.breed+'」已成交，收入 '+price+' 庭玉');
   };modal.showModal();
 }
-$('#sell').onclick=offerSale;$('#market').onclick=showMarket;$('#buyMore').onclick=showMarket;
+$('#sell').onclick=()=>garden.focusFrog?tradeFrog(garden.focusFrog,false):offerSale();$('#market').onclick=showMarket;$('#buyMore').onclick=showMarket;
 // Reveal once per individual, including fish that matured while the garden was closed.
 function revealAdults(){
   const matured=koi.filter(f=>{
@@ -170,25 +170,34 @@ function switchZone(zone){
 }
 function habitatDialog(){
  const body=openDialog(garden.reef?'双池游览':'鱼池扩建');
- const raised=garden.discovered.filter(n=>n!==VISITOR).length;
+ const raised=garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length;
  if(!garden.reef){const requirement=document.createElement('p');requirement.className='market-info';requirement.textContent='扩建条件 · 养过 '+Math.min(raised,4)+' / 4 种生物　庭玉 '+garden.jade+' / '+REEF_COST;body.append(requirement);}
  for(const [zone,title,src] of [['pond','镜水庭',pondTextures[0]],['reef','潮间礁池',reefTexture]]){
   const locked=zone==='reef'&&!garden.reef,box=document.createElement('article');box.className='habitat';
   box.innerHTML='<img alt="" src="'+src+'"><div><h3>'+title+'</h3><small>'+(zone==='reef'?'海水 · 珊瑚与浅沙':'淡水 · 苔石与睡莲')+'　'+localStock(zone).length+' / '+CAPACITY+'</small></div>';
   const b=document.createElement('button');b.textContent=locked?'扩建 · '+REEF_COST+' 玉':garden.zone===zone?'当前水域':'前往';b.disabled=locked?(garden.jade<REEF_COST||raised<4):garden.zone===zone;
-  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>n!==VISITOR).length<4)return;garden.jade-=REEF_COST;garden.reef=true;record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
+  b.onclick=()=>{if(locked&&!garden.reef){if(garden.jade<REEF_COST||garden.discovered.filter(n=>n!==VISITOR&&n!==SEA_STAR).length<4)return;garden.jade-=REEF_COST;garden.reef=true;garden.reefOpenedAt=Date.now();record('开辟潮间礁池，新增 '+CAPACITY+' 个海水生物池位。');}modal.close();switchZone(zone);};box.append(b);body.append(box);
  }
- if(garden.zone==='pond'&&dragonflyState()){const b=document.createElement('button');b.className='primary-action';b.textContent='前往赤蜻活动水岸';b.onclick=()=>{const v=dragonflyState();modal.close();placeCamera(v.x*width,v.y*height);document.querySelector('[data-mode="observe"]').click();note('轻点蜻蜓，记录这位野生访客');};body.append(b);}
+ const visitor=visitorState();
+ if(visitor){
+  const b=document.createElement('button');b.className='primary-action';b.textContent='前往'+(visitor.zone==='pond'?'荷岸':'礁池')+' · '+visitor.breed;
+  b.onclick=locateVisitor;body.append(b);
+ }
 }
 for(const b of document.querySelectorAll('#zoneJumps button'))b.onclick=()=>switchZone(b.dataset.zone);
 $('#zones').onclick=habitatDialog;$('#expandHabitat').onclick=habitatDialog;
 function fillAtlas(body){
- const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,VISITOR],known=new Set(garden.discovered);
+ const groups=[0,...Object.keys(breeds).map(Number).filter(type=>type>=6),TADPOLE,VISITOR,SEA_STAR],known=new Set(garden.discovered);
  const top=document.createElement('div');top.className='market-summary';top.innerHTML='<span>已记录 <b>'+known.size+' / '+groups.length+'</b></span><span>鱼类 <b>'+groups.filter(t=>t<55&&known.has(t)).length+' / 50</b></span>';body.append(top);
  const intro=document.createElement('p');intro.className='market-help';intro.textContent='养入新物种或观察野生访客可点亮图鉴；售出、放归和离世后仍保留记录。锦鲤的六种花色归在同一条目。';body.append(intro);
  for(const type of groups.filter(t=>known.has(t))){
-   const f=type===VISITOR?{breed:'赤蜻',image:fieldTextures[1],marking:'在水面巡猎小飞虫，疲倦时停在岸草上。'}:itemInfo(type);
+   const f=visitorKinds[type]??itemInfo(type);
    const row=document.createElement('section');row.className='atlas-entry';row.innerHTML='<img src="'+f.image+'" alt=""><div><b>'+(type===0?'锦鲤':f.breed)+'</b><small>'+(f.marking||'蝌蚪经后肢期与幼蛙期长成池蛙。')+'</small></div>';
+   if(visitorKinds[type]){
+    const details=document.createElement('small'),prefix=type+'/';
+    const seen=(garden.visitorNotes||[]).filter(key=>key.startsWith(prefix)).map(key=>key.slice(prefix.length));
+    details.textContent='停留时'+f.gift+(seen.length?' · 已见：'+seen.join('、'):'');row.querySelector('div').append(details);
+   }
    const pets=koi.filter(p=>speciesKey(garden.fish[p.id].type)===type);
    for(const pet of pets){const b=document.createElement('button');b.textContent=(garden.favorites.includes(pet.id)?'★ ':'')+pet.breed+' ↗';b.onclick=()=>{modal.close();selectFish(pet);};row.append(b);}
    if(type===TADPOLE){const b=document.createElement('button');b.textContent='蛙舍 ↗';b.onclick=openNursery;row.append(b);}
@@ -197,7 +206,7 @@ function fillAtlas(body){
  const locked=groups.length-known.size;if(locked){const card=document.createElement('div');card.className='undiscovered';card.textContent='尚有 '+locked+' 种生物待发现';body.append(card);}
 }
 function checkLives(now=Date.now()){
- settleIncome(now);
+ settleIncome(now);settleVisitor(now);
  const expired=Object.entries(garden.fish).filter(([,item])=>now>=item.deathAt);
  if(expired.length&&huntRun)endHunt();
  for(const [id,item] of expired){

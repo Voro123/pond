@@ -286,7 +286,7 @@ function frame(ts){
    edge.addColorStop(.85,'#46371e00');edge.addColorStop(.89,'#36291688');edge.addColorStop(.91,'#10211666');edge.addColorStop(1,'#10211600');
    ctx.fillStyle=edge;ctx.fillRect(width-6,0,DECK+19,height);
  }
- drawWildNymph(ctx);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
+ drawVisitor(ctx,true);drawTadpoles(dt);swimmers.forEach((s,i)=>{steer(s,dt,i);drawFish(s);});updateFood(dt);
  for(let i=ripples.length-1;i>=0;i--){ripples[i].age+=dt;if(ripples[i].age>3.2)ripples.splice(i,1);}
  const clock=gardenTime(),hour=clock.getUTCHours()+clock.getUTCMinutes()/60;
  const light=clamp(.65+Math.sin((hour-6)*Math.PI/12)*.65,.12,1);
@@ -298,7 +298,7 @@ const airLayer=document.createElement('canvas');airLayer.className='surface air'
 function paintAboveWater(){
  if(airLayer.width!==canvas.width||airLayer.height!==canvas.height){airLayer.width=canvas.width;airLayer.height=canvas.height;}
  const air=airLayer.getContext('2d');air.setTransform(1,0,0,1,0,0);air.clearRect(0,0,airLayer.width,airLayer.height);
- air.setTransform(zoom*dpr,0,0,zoom*dpr,-cam.x*zoom*dpr,-cam.y*zoom*dpr);drawDragonfly(air);drawFrogs(air);drawDebris(air);for(const p of food){if(p.air>0)drawPellet(air,p);}
+ air.setTransform(zoom*dpr,0,0,zoom*dpr,-cam.x*zoom*dpr,-cam.y*zoom*dpr);drawVisitor(air,false);drawFrogs(air);drawDebris(air);for(const p of food){if(p.air>0)drawPellet(air,p);}
 }
 function regionAt(x,y){if(zoneAt(x*width)==='reef')return x-zoneStart('reef')/width>.64?'海葵花园':y>.58?'珊瑚台地':'白沙浅湾';return x>.64?'枫影深潭':y>.58||x<.28?'荷岸浅滩':'镜心洄湾';}
 const map=$('#map'),mapCtx=map.getContext('2d');map.width=280;map.height=158;
@@ -316,7 +316,8 @@ function interact(x,y){
  if(!huntRun&&pickDebris(x,y))return;
  if(mode==='feed'){cast(x,y,baitKind);return;}
  if(mode==='ripple'){paddleWater(x,y,1.35);return;}
- if(!huntRun&&zoneAt(x*width)==='pond'&&hitDragonfly(x,y)){observeVisitor();return;}
+ const visitor=!huntRun&&visitorState();
+ if(visitor&&Math.hypot((x-visitor.x)*width,(y-visitor.y)*height)<Math.max(23,22/zoom)){observeVisitor(visitor);return;}
  const frog=zoneAt(x*width)==='pond'&&petAt(x,y);if(frog&&!huntRun){inspectFrog(frog);return;}
  let best=null,distance=Infinity;
  for(const s of swimmers)for(const b of s.bones){const d=Math.hypot(x*width-b.x,y*height-b.y);if(d<Math.max(14,s.length*.15)&&d<distance){best=s;distance=d;}}

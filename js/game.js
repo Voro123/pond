@@ -1,35 +1,58 @@
 "use strict";
 function openDialog(title){if(modal.open)modal.close();$('#modalTitle').textContent=title;$('#modalBody').replaceChildren();modal.showModal();return $('#modalBody');}
 function showInspector(open){$('aside').hidden=!open;$('#inspect').hidden=open;}
-$('#inspect').onclick=()=>{if(garden.focusFrog)openNursery();else showInspector(true);};
+$('#inspect').onclick=()=>{showInspector(true);};
 $('.fold').onclick=()=>showInspector(false);
 $('#home').onclick=()=>{showInspector(false);placeCamera(width*.423,height*.49);};
 function inspectFrog(id){
- const p=garden.amphibians[id];if(!p)return;if(garden.zone!=='pond')switchZone('pond');garden.focusFrog=id;chooseBait("algae");const m=motionFor(id,p);
- placeCamera(m.x*width,m.y*height);save();showInspector(false);render();note('已定位「'+p.name+'」 · '+frogGrowth(p).label+(frogGrowth(p).stage<3?'，投喂工具已备好藻屑':'，在荷岸活动'));
+ const p=garden.amphibians[id];if(!p)return;if(garden.zone!=='pond')switchZone('pond');garden.focusFrog=id;if(frogGrowth(p).stage<3)chooseBait("algae");const m=motionFor(id,p);
+ placeCamera(m.x*width,m.y*height);save();showInspector(true);render();note('已定位「'+p.name+'」 · '+frogGrowth(p).label+(frogGrowth(p).stage<3?'，投喂工具已备好藻屑':'，在荷岸活动'));
 }
 function openNursery(){
  const body=openDialog('荷岸蛙舍'),list=document.createElement('div');list.className='nursery-list';
- const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留在荷岸，或放归赚取庭玉。';body.append(intro,list);
+ const intro=document.createElement('p');intro.className='market-help';intro.textContent='定位个体后，投喂会换成藻屑。每隔 22 秒可进食一次。池中 3、8、16 小时分别长出后肢、前肢和褪尾，各需累计 1、2、3 次进食。成年后可留养、出售或放归湿地。';body.append(intro,list);
  for(const [id,p] of Object.entries(garden.amphibians)){
    const g=frogGrowth(p),row=document.createElement('article'),title=document.createElement('b');title.textContent=p.name+' · '+g.label;
    const stats=document.createElement('small');stats.textContent=traitText(p.traits)+' · '+g.temper+' · '+g.length+' cm · 饱食 '+g.full+'% · 活力 '+g.energy+'　水龄 '+g.age.toFixed(1)+' 小时　照料 '+p.meals+' 次'+(Date.now()-p.lastMeal<22000?'　刚刚吃饱':'');
    const locate=document.createElement('button');locate.textContent='定位观察';locate.onclick=()=>{modal.close();inspectFrog(id);};const portrait=document.createElement('img');portrait.className='frog-photo';portrait.src=frogTextures[g.stage];portrait.alt=g.label;
    row.append(portrait,title,stats,locate);
-   if(g.stage===3){const price=18*traitValue(p.traits);const release=document.createElement('button');release.textContent='放归 · '+price+' 玉';release.onclick=()=>{
-     const confirm=openDialog('放归湿地');confirm.innerHTML='<p class="dialog-detail">放归后，'+p.name+' 将离开镜水庭。湿地养护所会回赠 '+price+' 庭玉。</p>';
-     const yes=document.createElement('button');yes.className='primary-action';yes.textContent='确认放归';yes.onclick=()=>{
-       if(!garden.amphibians[id])return;delete garden.amphibians[id];petMotion.delete(id);if(garden.focusFrog===id){garden.focusFrog=null;chooseBait("grain");}garden.jade+=price;record('成蛙「'+p.name+'」已放归湿地，获赠 '+price+' 庭玉。');save();render();modal.close();note(p.name+' 已游入湿地');};confirm.append(yes);
-   };row.append(release);}list.append(row);
+   list.append(row);
  }
  const adopt=document.createElement('button');adopt.className='primary-action';adopt.textContent='到鱼市查看本批生物';adopt.onclick=showMarket;body.append(adopt);
 }
 $('#nursery').onclick=openNursery;
-function paintFocus(){
- const p=garden.amphibians[garden.focusFrog];if(!p)return;
- $('#peekImg').hidden=true;$('#peekName').textContent=p.name+' · '+frogGrowth(p).label;
+function frogPrice(p,release){return (release?18:20+Math.floor(p.seed*6))*traitValue(p.traits);}
+function tradeFrog(id,release){
+ const p=garden.amphibians[id];if(!p||frogGrowth(p).stage!==3)return;
+ const price=frogPrice(p,release),action=release?'放归':'出售';
+ const body=openDialog(release?'放归湿地':'出售成蛙');
+ const detail=document.createElement('p');detail.textContent=action+'后，「'+p.name+'」将离开荷岸。'+(release?'湿地养护所回赠':'鱼市估价')+' '+price+' 庭玉。';body.append(detail);
+ const keep=document.createElement('button');keep.textContent='继续留养';keep.onclick=()=>modal.close();body.append(keep);
+ const yes=document.createElement('button');yes.className='primary-action';yes.textContent='确认'+action;body.append(yes);
+ yes.onclick=()=>{
+  if(!garden.amphibians[id])return;
+  delete garden.amphibians[id];petMotion.delete(id);
+  garden.favorites=garden.favorites.filter(key=>key!==id);garden.focusFrog=null;
+  garden.jade+=price;record(action+'成蛙「'+p.name+'」，获得 '+price+' 庭玉。');
+  chooseBait(current()?.habit==='scrape'?'algae':'grain');buildTiles();render();save();modal.close();note(action+'完成 · '+price+' 庭玉');
+ };
 }
-paintFocus();
+function paintFrogProfile(id,p){
+ const g=frogGrowth(p),image=frogTextures[g.stage],adult=g.stage===3;
+ const nextHours=[3,8,16][g.stage],needs=[];
+ if(!adult){
+  if(g.age<nextHours)needs.push('再过 '+(nextHours-g.age).toFixed(1)+' 池时');
+  if(p.meals<=g.stage)needs.push('再进食 '+(g.stage+1-p.meals)+' 次');
+ }
+ const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:'',traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
+ for(const [key,value] of Object.entries(fields))$('#'+key).textContent=value;
+ $('#peekImg').hidden=false;$('#peekImg').src=image;$('#peekName').textContent=p.name+' · '+g.label;
+ $('.portrait').classList.remove('lustre');$('#portrait').style.filter='none';$('#portrait').src=image;
+ $('#foodbar').style.width=g.full+'%';$('#progress').style.width=g.stage/3*100+'%';
+ $('#sell').disabled=!adult;$('#sell').textContent=adult?'出售 · '+frogPrice(p,false)+' 玉':'成年可出售';
+ $('#releaseFish').disabled=!adult;$('#releaseFish').textContent=adult?'放归 · '+frogPrice(p,true)+' 玉':'成年可放归';
+}
+buildTiles();render();
 if(garden.focusFrog&&garden.amphibians[garden.focusFrog]){const m=motionFor(garden.focusFrog,garden.amphibians[garden.focusFrog]);placeCamera(m.x*width,m.y*height);}
 else if(garden.selected&&garden.selected!=='k01')locateFish(garden.selected);
 function canStartHunt(){return garden.lastHuntHour!==Math.floor(Date.now()/3600000);}
@@ -89,7 +112,7 @@ $('#hunt').onclick=()=>{
 };
 for(const button of document.querySelectorAll('[data-mode]'))button.addEventListener('click',()=>{if(huntRun&&button.dataset.mode!=='observe')endHunt();});
 
-let baitKind=garden.focusFrog||current()?.habit==='scrape'?'algae':'grain';
+let baitKind=(garden.amphibians[garden.focusFrog]?frogGrowth(garden.amphibians[garden.focusFrog]).stage<3:current()?.habit==='scrape')?'algae':'grain';
 function chooseBait(kind){
  baitKind=kind;
  for(const b of document.querySelectorAll('[data-bait]'))b.setAttribute('aria-pressed',b.dataset.bait===kind);
