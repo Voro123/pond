@@ -35,6 +35,7 @@ dialog:has(.stall){width:min(660px,94vw);max-height:calc(100dvh - 32px);padding:
 .lot-image img{max-height:60px}
 .lot h3{font-size:17px;line-height:1.4;overflow-wrap:anywhere}
 .lot-meta{display:block;margin-top:3px}
+.lot-care{display:grid;gap:2px;margin:8px 0;color:#c7cbb9;font-size:11px;line-height:1.45}
 .lot-traits{display:flex;flex-wrap:wrap;gap:3px 7px;margin-top:6px;color:#d8c491;font-size:11px}
 .lot-traits span{white-space:nowrap}
 .lot-order{margin-top:auto;padding-top:10px}
@@ -63,7 +64,7 @@ dialog:has(.stall){width:min(660px,94vw);max-height:calc(100dvh - 32px);padding:
 <section class="tools"><div class="tool-title"><i data-i="tool"></i><h2>庭院工具</h2></div><div id="bait" hidden aria-label="饵料选择"><button data-bait="grain">鱼粮</button><button data-bait="algae">藻屑</button></div><div id="modes"><button data-mode="observe" class="chosen"><i data-i="eye"></i>观察</button><button data-mode="feed"><i data-i="feed"></i>投喂</button><button data-mode="ripple"><i data-i="wave"></i>拨水</button><button id="hunt"><i data-i="scan"></i>寻踪</button></div></section></div>
 <aside hidden><button class="fold" aria-label="收起档案">收起 ↓</button><section class="card profile"><div class="card-head"><h2><i data-i="scan"></i>生物档案</h2><small id="serial"></small></div><div class="portrait"><div class="orbits"></div><span class="corner tl"></span><span class="corner br"></span><img id="portrait" alt="当前生物的外观"></div>
 <div class="name-row"><div><h3 id="fishName"></h3><div id="breed"></div></div><button id="follow"><i data-i="star"></i><span>关注</span></button></div><div class="stats"><div><label>体长</label><strong id="length"></strong><small> cm</small></div><div><label>年龄</label><strong id="age"></strong><small> 天</small></div><div><label>性情</label><span id="nature"></span></div></div>
-<div class="growth"><div><span><i data-i="sprout"></i>成长进度</span><span id="phase"></span></div><div class="bar"><b id="progress"></b></div></div><div class="foodstat"><label>饱食度 <span id="hunger"></span></label><div class="bar"><b id="foodbar"></b></div><small id="life"></small><small id="family"></small><small id="traits"></small><small id="fieldHabit"></small><small id="incomeInfo"></small></div><div class="valuation"><span id="quality"></span><button id="releaseFish">放生 · 免费</button><button id="sell">出售</button></div></section>
+<div class="growth"><div><span><i data-i="sprout"></i>成长进度</span><span id="phase"></span></div><div class="bar"><b id="progress"></b></div></div><div class="foodstat"><label>饱食度 <span id="hunger"></span></label><div class="bar"><b id="foodbar"></b></div><small id="careInfo"></small><small id="life"></small><small id="family"></small><small id="traits"></small><small id="fieldHabit"></small><small id="incomeInfo"></small></div><div class="valuation"><span id="quality"></span><button id="releaseFish">放生 · 免费</button><button id="sell">出售</button></div></section>
 <section class="card stock"><div class="card-head"><h2><i data-i="fish"></i>池中生物</h2><small id="count"></small></div><div id="fishList"></div><button id="buyMore">＋ 前往鱼市</button></section></aside></div>
 <button id="inspect"><img alt="" id="peekImg"><span><small>观察档案</small><b id="peekName"></b></span><i>⌃</i></button><div id="mapBox"><button id="expandHabitat">＋ 扩建鱼池 · 300 玉</button><section id="zoneJumps" hidden><button data-zone="pond">镜水庭</button><button data-zone="reef">潮间礁池</button></section><div><button id="zones">水域舆图 ↗</button><span>点击定位</span></div><canvas id="map" aria-label="池塘地图"></canvas><div id="mapClock"><time></time><b>100×</b></div><small id="pondElapsed"></small><button id="visitorHint" hidden></button><button id="returnStory" hidden></button><button id="debrisHint" hidden></button></div><footer><span><em></em><span id="saved">本地存档已同步</span></span><span><i data-i="clock"></i>时间流速 <b>100×</b></span></footer></main>
 <div id="huntHud" hidden><img alt="目标花纹"><div><small id="huntCounter"></small><strong id="huntTarget"></strong></div><b id="huntTimer"></b><button id="endHunt" aria-label="结束寻鲤">×</button></div><div id="notice" role="status" hidden></div><dialog><div class="card-head"><h2 id="modalTitle"></h2><button id="close" aria-label="关闭">×</button></div><div id="modalBody"></div></dialog>
@@ -129,29 +130,61 @@ function traitText(traits=[]){
  return names.length?names.join(' · ')+(traits.includes('fast')?'　游速 +50%':'')+'　身价 ×'+traitValue(traits):'无天生特性';
 }
 </script><script>"use strict";
+// Gameplay units: growth days at full speed, satiety points spent per pond
+// day, points restored per particle, and minimum satiety for full-speed growth.
+function care(adultDays,dailyUse,bite,growthFloor){
+ return {adultDays,dailyUse,bite,growthFloor};
+}
+const koiCare=care(18,23,12,55);
+const frogStageHours=[3,8,16];
+const frogCare=care(frogStageHours[2]/24,58,null,null);
+const speciesCare={
+ '珍珠金鱼':care(10,22,11,56), '青鳉':care(3,25,18,52), '彩石鲋':care(6,19,16,54),
+ '泥鳅':care(9,16,15,46), '白云金丝':care(3.5,24,18,53), '沙塘鳢':care(8,13,22,42),
+ '丁鱥':care(15,19,13,50), '棒花鱼':care(7,18,16,49), '小体鲟':care(30,31,10,62),
+ '霓虹灯鱼':care(4.5,23,17,55), '孔雀鱼':care(3.2,26,18,53), '暹罗斗鱼':care(5,16,21,46),
+ '虎皮鱼':care(5.5,28,15,57), '斑马鱼':care(3.4,29,16,54), '熊猫鼠鱼':care(7.5,19,14,52),
+ '胡子异型':care(10.5,22,11,58), '银斧鱼':care(7,22,18,50), '库利泥鳅':care(11,15,16,47),
+ '红尾黑鲨':care(12,23,13,54), '珍珠丝足鲈':care(8.5,18,16,50), '丽丽鱼':care(5.5,17,18,51),
+ '神仙鱼':care(9.5,21,15,54), '美丽彩虹鱼':care(8,28,14,57), '条纹鳉':care(4.5,18,22,46),
+ '巧克力娃娃':care(6.5,23,17,56), '荷兰凤凰':care(5,22,16,53), '非洲蝴蝶鱼':care(9,15,23,42),
+ '公子小丑鱼':care(12,21,16,55), '蓝吊':care(20,32,12,61), '黄金吊':care(21,33,10,63),
+ '麒麟鱼':care(10,34,11,65), '长吻蝶鱼':care(15,28,13,60), '睡衣天竺鲷':care(8,17,19,48),
+ '紫雷达':care(7,23,17,51), '皇家拟雀鲷':care(8.5,17,20,47), '邦盖天竺鲷':care(8,18,19,49),
+ '蓑鲉':care(16,13,29,40), '长角箱鲀':care(18,24,14,57), '黄箱鲀':care(19,25,14,58),
+ '条纹斑竹鲨':care(36,16,27,43), '蓝点魟':care(26,25,12,54), '喇叭鱼':care(18,16,24,44),
+ '雪花海鳝':care(22,12,30,38), '竖琴尾花鮨':care(9,32,13,62), '鸟嘴隆头鱼':care(16,27,15,57),
+ '青绿光鳃鱼':care(7,29,15,58), '镊口鱼':care(14,27,13,60), '长吻鹰鱼':care(11,16,22,45),
+ '镰鱼':care(16,26,14,55), '中华草龟':care(42,8,26,43), '美西螈':care(12,12,25,42),
+ '樱花虾':care(2,14,12,57), '乌贼':care(7.5,36,16,61), '蓝螯虾':care(8,18,18,47),
+ '斑马螺':care(6,9,11,52)
+};
+</script><script>"use strict";
 const DAY = 86400000, RATE = 100;
 const breeds = [
-  {id:"k01", breed:"红白锦鲤", nature:"亲和", marking:"雪白鳞间，三段绯红如枫叶。", days:62, adult:180, max:60, pace:1.05},
-  {id:"k02", breed:"山吹黄金锦鲤", nature:"活泼", marking:"从额顶到尾柄，通身金鳞。", days:94, adult:200, max:65, pace:1.25},
-  {id:"k03", breed:"丹顶锦鲤", nature:"温顺", marking:"通体乳白，额心独有一枚朱印。", days:45, adult:175, max:58, pace:.87},
-  {id:"k04", breed:"昭和三色锦鲤", nature:"沉静", marking:"墨色横过肩背，绯斑点缀其间。", days:121, adult:210, max:70, pace:.73},
-  {id:"k05", breed:"浅黄锦鲤", nature:"谨慎", marking:"背鳞似蓝灰色织网，鳍尖染橙。", days:16, adult:184, max:56, pace:.82},
-  {id:"k06", breed:"赤别甲锦鲤", nature:"好奇", marking:"铜红的底色上散落乌黑斑纹。", days:.2, adult:170, max:63, pace:1.14}
+  {id:"k01", breed:"红白锦鲤", nature:"亲和", marking:"雪白鳞间，三段绯红如枫叶。", max:60, pace:1.05},
+  {id:"k02", breed:"山吹黄金锦鲤", nature:"活泼", marking:"从额顶到尾柄，通身金鳞。", max:65, pace:1.25},
+  {id:"k03", breed:"丹顶锦鲤", nature:"温顺", marking:"通体乳白，额心独有一枚朱印。", max:58, pace:.87},
+  {id:"k04", breed:"昭和三色锦鲤", nature:"沉静", marking:"墨色横过肩背，绯斑点缀其间。", max:70, pace:.73},
+  {id:"k05", breed:"浅黄锦鲤", nature:"谨慎", marking:"背鳞似蓝灰色织网，鳍尖染橙。", max:56, pace:.82},
+  {id:"k06", breed:"赤别甲锦鲤", nature:"好奇", marking:"铜红的底色上散落乌黑斑纹。", max:63, pace:1.14}
 ].map((fish,i)=>({...fish,image:pondTextures[i+1]}));
 const CAPACITY=20;
-for(const f of breeds)Object.assign(f,{habit:'cruise',habitat:'pond',kind:'鱼类'});
+for(const f of breeds)Object.assign(f,{habit:'cruise',habitat:'pond',kind:'鱼类',adult:koiCare.adultDays,care:koiCare});
+// Pre-v4 maturity thresholds are needed only to translate existing save progress.
+const oldKoiGrowth=[180,200,175,210,184,170],oldMarketKoiGrowth=[3,4,4.5,6,3.5,3.2];
 const offers=[
-  {cost:120,base:290,days:3}, {cost:360,base:920,days:4},
-  {cost:520,base:1404,days:4.5}, {cost:1200,base:3600,days:6},
-  {cost:240,base:645,days:3.5}, {cost:180,base:437,days:3.2}
+  {cost:120,base:290}, {cost:360,base:920},
+  {cost:520,base:1404}, {cost:1200,base:3600},
+  {cost:240,base:645}, {cost:180,base:437}
 ];
 speciesRows.forEach(([breed,habit,max,cost,marketCost=cost],i)=>{
- const type=i+6,days=2.4+cost*.09;
- breeds.push({id:'sp'+type,breed,habit,kind:i<49?'鱼类':['爬行类','两栖类','甲壳类','头足类','甲壳类'][i-49],nature:activity[habit][0],marking:activity[habit][1],pace:activity[habit][2],max,adult:days,habitat:habitatOf(type),image:specimenTextures[i]});
- offers.push({cost:marketCost,base:Math.round(marketCost*2.5),days});
+ const type=i+6,profile=speciesCare[breed];
+ breeds.push({id:'sp'+type,breed,habit,kind:i<49?'鱼类':['爬行类','两栖类','甲壳类','头足类','甲壳类'][i-49],nature:activity[habit][0],marking:activity[habit][1],pace:activity[habit][2],max,adult:profile.adultDays,care:profile,habitat:habitatOf(type),image:specimenTextures[i]});
+ offers.push({cost:marketCost,base:Math.round(marketCost*2.5)});
 });
-breeds[NERITE]={id:'sp62',breed:'斑马螺',kind:'腹足类',habit:'scrape',habitat:'pond',max:3,adult:2.8,pace:.25,nature:'安静',marking:activity.scrape[1],image:neriteTexture};
-offers[NERITE]={cost:7,base:18,days:2.8};
+breeds[NERITE]={id:'sp62',breed:'斑马螺',kind:'腹足类',habit:'scrape',habitat:'pond',max:3,adult:speciesCare['斑马螺'].adultDays,care:speciesCare['斑马螺'],pace:.25,nature:'安静',marking:activity.scrape[1],image:neriteTexture};
+offers[NERITE]={cost:7,base:18};
 function inheritedSex(id,item){
  let hash=Math.round(item.seed*4294967295)>>>0;
  for(const char of id)hash=Math.imul(hash^char.charCodeAt(0),16777619)>>>0;
@@ -179,14 +212,38 @@ function upgrade(data){
   if(breeds[item.type]?.kind==='鱼类'&&!item.sex)item.sex=inheritedSex(id,item);
  }
  for(const [id,p] of Object.entries(data.amphibians))p.traits??=rollTraits([data.created,id,p.seed].join('/'));
+ if(data.version===3)migrateCare(data,Date.now());
  return data;
 }
+// Settle the old rate through the upgrade instant, preserving both the
+// growth fraction and the original maturity crossing used for adult income.
+function migrateCare(data,now){
+ for(const item of Object.values(data.fish)){
+  const type=item.type,def=breeds[type],end=Math.min(now,item.deathAt);
+  const oldDays=type<6?(item.starter||item.hatchery?oldMarketKoiGrowth[type]:oldKoiGrowth[type]):type===NERITE?2.8:2.4+speciesRows[type-6][3]*.09;
+  const oldRate=(2.4+(type%7)*.23+item.seed*.45)/5;
+  const previous=integrateGrowth(item,end,oldRate);
+  if(def.kind==='鱼类'&&item.adultAt==null&&previous.body>=oldDays){
+   let lo=item.metabolicAt,hi=Math.max(lo,end);
+   while(hi-lo>1){const mid=Math.floor((lo+hi)/2);if(integrateGrowth(item,mid,oldRate).body>=oldDays)hi=mid;else lo=mid;}
+   item.adultAt=item.bodyDays>=oldDays?lo:hi;
+  }
+  item.fullness=previous.full;item.metabolicAt=end;
+  item.bodyDays=previous.body/oldDays*def.care.adultDays;
+ }
+ for(const p of Object.values(data.amphibians)){
+  const at=p.fedAt||p.lastMeal,level=p.fedAt?p.fedLevel:100;
+  p.fedLevel=at?Math.max(p.lastMeal?0:32,level-(now-at)*.00060):32;p.fedAt=now;
+ }
+ data.version=4;
+}
 function initialState(now){
- const f=individual(0,now-2*DAY/RATE,.44);f.metabolicAt=now;f.bodyDays=2;f.fullness=27;f.starter=true;
- return {version:3,created:now,jade:0,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。'}]};
+ const startingAge=koiCare.adultDays-1;
+ const f=individual(0,now-startingAge*DAY/RATE,.44);f.metabolicAt=now;f.bodyDays=startingAge;f.fullness=27;f.starter=true;
+ return {version:4,created:now,jade:0,next:7,selected:'k01',favorites:[],fish:{k01:f},amphibians:{},nextFrog:1,discovered:[0],zone:'pond',reef:false,marketSold:{},wildStart:now+32000,events:[{at:now,text:'红白锦鲤入庭。'}]};
 }
 function validGarden(data){
-  return data && [1,2,3].includes(data.version) && Number.isFinite(data.created) && Array.isArray(data.events) && Array.isArray(data.favorites);
+  return data && [1,2,3,4].includes(data.version) && Number.isFinite(data.created) && Array.isArray(data.events) && Array.isArray(data.favorites);
 }
 function readState(){
   try{
@@ -199,8 +256,8 @@ let garden=readState(),koi=[];
 function rebuildRoster(){
   koi=Object.entries(garden.fish).map(([id,item])=>{
     const def=breeds[item.type];
-    if(!item.hatchery)return {...def,id,adult:item.starter?offers[0].days:def.adult};
-    return {...def,id,adult:offers[item.type].days,max:def.max*(.84+item.seed*.28),pace:def.pace*(.90+.2*item.seed),
+    if(!item.hatchery)return {...def,id};
+    return {...def,id,max:def.max*(.84+item.seed*.28),pace:def.pace*(.90+.2*item.seed),
       nature:["好奇","悠闲","活泼","温顺"][Math.floor(item.seed*173)%4]};
   });
   const local=koi.filter(f=>f.habitat===garden.zone);
@@ -211,7 +268,7 @@ function coloration(f){
   return item.hatchery?'hue-rotate('+Math.round((item.seed-.5)*28)+'deg) saturate('+(.82+item.seed*.4)+')':'none';
 }
 function frogStage(p,age){
- return age>=16&&p.meals>=3?3:age>=8&&p.meals>=2?2:age>=3&&p.meals>=1?1:0;
+ return frogStageHours.filter((hours,i)=>age>=hours&&p.meals>=i+1).length;
 }
 function chorusLayers(now=Date.now()){
  const adults=Object.values(garden.amphibians).filter(p=>frogStage(p,(now-p.born)*RATE/3600000)===3);
@@ -253,10 +310,13 @@ function record(text){
 }
 // Integrate each hunger band exactly even when a tab stays closed for days.
 function metabolism(item,now=Date.now()){
+ const profile=breeds[item.type].care;
+ return integrateGrowth(item,now,profile.dailyUse/24,profile.growthFloor);
+}
+function integrateGrowth(item,now,rate,growthFloor=55){
  const hours=Math.max(0,now-item.metabolicAt)*RATE/3600000;
- const rate=(2.4+(item.type%7)*.23+item.seed*.45)/5;
  let left=hours,full=item.fullness,gain=0;
- for(const [floor,factor] of [[55,1],[25,.76],[8,.48],[0,.30]]){
+ for(const [floor,factor] of [[growthFloor,1],[25,.76],[8,.48],[0,.30]]){
    const span=Math.min(left,Math.max(0,(full-floor)/rate));gain+=span*factor;left-=span;full-=span*rate;
  }
  return {full:Math.max(0,full),body:item.bodyDays+(gain+left*.20)/24};
@@ -265,7 +325,7 @@ function feedIndividual(f,now=Date.now()){
  const item=garden.fish[f.id],m=metabolism(item,now);
  if(m.full>=88||now-(item.biteAt||0)<650)return false;
  markAdult(f,now);
- item.bodyDays=m.body;item.fullness=Math.min(100,m.full+19+item.seed*5+(currentVisit(now)?.type===BUTTERFLY?2:0));item.biteAt=item.metabolicAt=now;return true;
+ item.bodyDays=m.body;item.fullness=Math.min(100,m.full+breeds[item.type].care.bite+(currentVisit(now)?.type===BUTTERFLY?2:0));item.biteAt=item.metabolicAt=now;return true;
 }
 function grazeFilm(f,now){
  const item=garden.fish[f.id];
@@ -773,8 +833,9 @@ function render(){
   const f=current(),g=growthOf(f);
   const value=appraisal(f),item=garden.fish[f.id];
   $('.portrait').classList.toggle('lustre',value.rank>=2&&g.maturity>=.5);
-  $('#hunger').textContent=Math.round(g.full)+'% · '+(g.full>=88?'饱足':g.full>=55?'温饱':g.full>=25?'微饿':'饥饿');
+  $('#hunger').textContent=Math.round(g.full)+'% · '+(g.full>=88?'饱足':g.full>=f.care.growthFloor?'温饱':g.full>=25?'微饿':'饥饿');
   $('#foodbar').style.width=g.full+'%';$('#life').textContent=(typeof pondActivity==='function'?pondActivity(f):activity[f.habit][0])+' · 预计余寿 '+Math.ceil(g.remaining)+' 池日';
+  $('#careInfo').textContent='每池日消耗 '+f.care.dailyUse+' 点 · 每粒补 '+f.care.bite+' 点 · 饱食 ≥ '+f.care.growthFloor+'% 时 '+f.adult+' 池日成熟';
   $('#quality').textContent=value.reveal+' · 照料 '+item.care+'/3';
   $('#sell').disabled=g.maturity<1;$('#sell').textContent=g.maturity<1?'成年可出售':'出售 · '+value.price+' 玉';
   $('#portrait').style.filter=coloration(f);
@@ -916,17 +977,30 @@ async function purchase(type,hour){
  };
  if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
 }
+function marketCare(type){
+ const frog=type===TADPOLE,p=frog?frogCare:breeds[type].care;
+ const minutes=p.adultDays*DAY/RATE/60000;
+ const clock=minutes<60?Math.round(minutes)+' 分钟':Number((minutes/60).toFixed(1))+' 小时';
+ const lines=frog?[
+  '进食后饱食回满 · 每池日消耗 '+p.dailyUse+' 点',
+  '成蛙需 '+frogStageHours[2]+' 池时和 3 次进食'
+ ]:[
+  '每池日消耗 '+p.dailyUse+' 点 · 每粒补 '+p.bite+' 点',
+  '饱食 ≥ '+p.growthFloor+'% 时，'+p.adultDays+' 池日成熟'
+ ];
+ return '<div class="lot-care">'+lines.map(line=>'<span>'+line+'</span>').join('')+'<span>最快约现实 '+clock+'</span></div>';
+}
 function showMarket(){
  const hour=Math.floor(Date.now()/MARKET_HOUR),body=openDialog('潮时鱼市');body.dataset.marketHour=hour;
  if(garden.seenMarketHour!==hour && !document.hidden){garden.seenMarketHour=hour;save();}
- body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。天生特性买入后揭晓，仅在出售估价时加价。</p>';
+ body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。天生特性买入后揭晓，仅在出售估价时加价。养成时间从幼体起算，鱼虾等饱食不足时生长放慢。</p>';
  const stall=body.querySelector('.stall');
  for(const {type,base,price,sex} of stockFor(hour)){
    const f=itemInfo(type),card=document.createElement('article'),diff=Math.round(100*(price/base-1));
    card.className='lot';
    const habitat=f.habitat==='reef'?'潮间礁池':'镜水庭';
    card.innerHTML='<div class="lot-image"><img alt="" src="'+f.image+'"></div>'+
-     '<h3>'+f.breed+'</h3><small class="lot-meta">'+habitat+' · '+(sex?sex+'性':f.kind)+'</small>'+
+     '<h3>'+f.breed+'</h3><small class="lot-meta">'+habitat+' · '+(sex?sex+'性':f.kind)+'</small>'+marketCare(type)+
      '<div class="lot-order"><div class="quote"><b>'+price+' 玉</b><small>'+(!diff?'平价':(diff>0?'+':'')+diff+'%')+'</small></div></div>';
    const button=document.createElement('button'),reason=purchaseReason(type,price,hour);
    button.disabled=!!reason;button.textContent=reason||'买入一只';button.onclick=()=>purchase(type,hour);
@@ -1184,8 +1258,8 @@ function settleVisitor(now){
 const petMotion=new Map();
 const frogNames=['小苔','露丸','团青','竹音','雨豆','芦生','青灯','溪叶'];
 function frogFullness(p,now=Date.now()){
- if(p.fedAt)return Math.max(p.lastMeal?0:32,p.fedLevel-(now-p.fedAt)*.00060);
- return p.lastMeal?Math.max(0,100-(now-p.lastMeal)*.00060):32;
+ const at=p.fedAt??(p.lastMeal||p.born),level=p.fedLevel??(p.lastMeal?100:32);
+ return Math.max(0,level-Math.max(0,now-at)*RATE/DAY*frogCare.dailyUse);
 }
 function frogGrowth(p){
  const age=Math.max(0,(Date.now()-p.born)*RATE/3600000);
@@ -2183,12 +2257,12 @@ function tradeFrog(id,release){
 }
 function paintFrogProfile(id,p){
  const g=frogGrowth(p),image=frogTextures[g.stage],adult=g.stage===3;
- const nextHours=[3,8,16][g.stage],needs=[];
+ const nextHours=frogStageHours[g.stage],needs=[];
  if(!adult){
   if(g.age<nextHours)needs.push('再过 '+(nextHours-g.age).toFixed(1)+' 池时');
   if(p.meals<=g.stage)needs.push('再进食 '+(g.stage+1-p.meals)+' 次');
  }
- const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
+ const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,careInfo:'每池日消耗 '+frogCare.dailyUse+' 点 · '+frogStageHours[2]+' 池时及 3 次进食成蛙',hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
  for(const [key,value] of Object.entries(fields))$('#'+key).textContent=value;
  $('#peekImg').hidden=false;$('#peekImg').src=image;$('#peekName').textContent=p.name+' · '+g.label;
  $('.portrait').classList.remove('lustre');$('#portrait').style.filter='none';$('#portrait').src=image;

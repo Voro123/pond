@@ -39,12 +39,12 @@ function tradeFrog(id,release){
 }
 function paintFrogProfile(id,p){
  const g=frogGrowth(p),image=frogTextures[g.stage],adult=g.stage===3;
- const nextHours=[3,8,16][g.stage],needs=[];
+ const nextHours=frogStageHours[g.stage],needs=[];
  if(!adult){
   if(g.age<nextHours)needs.push('再过 '+(nextHours-g.age).toFixed(1)+' 池时');
   if(p.meals<=g.stage)needs.push('再进食 '+(g.stage+1-p.meals)+' 次');
  }
- const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
+ const fields={serial:'NO. A'+id.slice(1).padStart(3,'0'),fishName:p.name,breed:'镜水庭 · 池蛙',length:g.length,age:(g.age/24).toFixed(1),nature:g.temper,phase:g.label,careInfo:'每池日消耗 '+frogCare.dailyUse+' 点 · '+frogStageHours[2]+' 池时及 3 次进食成蛙',hunger:g.full+'%',life:'活力 '+g.energy,family:chorusText(),traits:traitText(p.traits),fieldHabit:adult?'在荷岸跳跃、歇脚':'靠近水里的藻屑进食',incomeInfo:needs.length?'距离'+['后肢期','幼蛙','成蛙'][g.stage]+' · '+needs.join('，'):'',quality:'照料 '+p.meals+' 次'};
  for(const [key,value] of Object.entries(fields))$('#'+key).textContent=value;
  $('#peekImg').hidden=false;$('#peekImg').src=image;$('#peekName').textContent=p.name+' · '+g.label;
  $('.portrait').classList.remove('lustre');$('#portrait').style.filter='none';$('#portrait').src=image;

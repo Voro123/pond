@@ -47,8 +47,9 @@ function render(){
   const f=current(),g=growthOf(f);
   const value=appraisal(f),item=garden.fish[f.id];
   $('.portrait').classList.toggle('lustre',value.rank>=2&&g.maturity>=.5);
-  $('#hunger').textContent=Math.round(g.full)+'% · '+(g.full>=88?'饱足':g.full>=55?'温饱':g.full>=25?'微饿':'饥饿');
+  $('#hunger').textContent=Math.round(g.full)+'% · '+(g.full>=88?'饱足':g.full>=f.care.growthFloor?'温饱':g.full>=25?'微饿':'饥饿');
   $('#foodbar').style.width=g.full+'%';$('#life').textContent=(typeof pondActivity==='function'?pondActivity(f):activity[f.habit][0])+' · 预计余寿 '+Math.ceil(g.remaining)+' 池日';
+  $('#careInfo').textContent='每池日消耗 '+f.care.dailyUse+' 点 · 每粒补 '+f.care.bite+' 点 · 饱食 ≥ '+f.care.growthFloor+'% 时 '+f.adult+' 池日成熟';
   $('#quality').textContent=value.reveal+' · 照料 '+item.care+'/3';
   $('#sell').disabled=g.maturity<1;$('#sell').textContent=g.maturity<1?'成年可出售':'出售 · '+value.price+' 玉';
   $('#portrait').style.filter=coloration(f);

@@ -122,8 +122,8 @@ function settleVisitor(now){
 const petMotion=new Map();
 const frogNames=['小苔','露丸','团青','竹音','雨豆','芦生','青灯','溪叶'];
 function frogFullness(p,now=Date.now()){
- if(p.fedAt)return Math.max(p.lastMeal?0:32,p.fedLevel-(now-p.fedAt)*.00060);
- return p.lastMeal?Math.max(0,100-(now-p.lastMeal)*.00060):32;
+ const at=p.fedAt??(p.lastMeal||p.born),level=p.fedLevel??(p.lastMeal?100:32);
+ return Math.max(0,level-Math.max(0,now-at)*RATE/DAY*frogCare.dailyUse);
 }
 function frogGrowth(p){
  const age=Math.max(0,(Date.now()-p.born)*RATE/3600000);

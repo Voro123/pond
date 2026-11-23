@@ -75,17 +75,30 @@ async function purchase(type,hour){
  };
  if(navigator.locks)await navigator.locks.request('niwa-hourly-shop',commit);else commit();
 }
+function marketCare(type){
+ const frog=type===TADPOLE,p=frog?frogCare:breeds[type].care;
+ const minutes=p.adultDays*DAY/RATE/60000;
+ const clock=minutes<60?Math.round(minutes)+' 分钟':Number((minutes/60).toFixed(1))+' 小时';
+ const lines=frog?[
+  '进食后饱食回满 · 每池日消耗 '+p.dailyUse+' 点',
+  '成蛙需 '+frogStageHours[2]+' 池时和 3 次进食'
+ ]:[
+  '每池日消耗 '+p.dailyUse+' 点 · 每粒补 '+p.bite+' 点',
+  '饱食 ≥ '+p.growthFloor+'% 时，'+p.adultDays+' 池日成熟'
+ ];
+ return '<div class="lot-care">'+lines.map(line=>'<span>'+line+'</span>').join('')+'<span>最快约现实 '+clock+'</span></div>';
+}
 function showMarket(){
  const hour=Math.floor(Date.now()/MARKET_HOUR),body=openDialog('潮时鱼市');body.dataset.marketHour=hour;
  if(garden.seenMarketHour!==hour && !document.hidden){garden.seenMarketHour=hour;save();}
- body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。天生特性买入后揭晓，仅在出售估价时加价。</p>';
+ body.innerHTML='<div class="market-summary"><span>庭玉 <b>'+garden.jade+'</b></span><span>下批到货 <b id="arrival"></b></span></div><div class="stall"></div><p class="market-help">每逢整点到货六样，每样一份。标价随本批行情上下浮动 20%。天生特性买入后揭晓，仅在出售估价时加价。养成时间从幼体起算，鱼虾等饱食不足时生长放慢。</p>';
  const stall=body.querySelector('.stall');
  for(const {type,base,price,sex} of stockFor(hour)){
    const f=itemInfo(type),card=document.createElement('article'),diff=Math.round(100*(price/base-1));
    card.className='lot';
    const habitat=f.habitat==='reef'?'潮间礁池':'镜水庭';
    card.innerHTML='<div class="lot-image"><img alt="" src="'+f.image+'"></div>'+
-     '<h3>'+f.breed+'</h3><small class="lot-meta">'+habitat+' · '+(sex?sex+'性':f.kind)+'</small>'+
+     '<h3>'+f.breed+'</h3><small class="lot-meta">'+habitat+' · '+(sex?sex+'性':f.kind)+'</small>'+marketCare(type)+
      '<div class="lot-order"><div class="quote"><b>'+price+' 玉</b><small>'+(!diff?'平价':(diff>0?'+':'')+diff+'%')+'</small></div></div>';
    const button=document.createElement('button'),reason=purchaseReason(type,price,hour);
    button.disabled=!!reason;button.textContent=reason||'买入一只';button.onclick=()=>purchase(type,hour);

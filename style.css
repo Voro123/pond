@@ -34,6 +34,7 @@ dialog:has(.stall){width:min(660px,94vw);max-height:calc(100dvh - 32px);padding:
 .lot-image img{max-height:60px}
 .lot h3{font-size:17px;line-height:1.4;overflow-wrap:anywhere}
 .lot-meta{display:block;margin-top:3px}
+.lot-care{display:grid;gap:2px;margin:8px 0;color:#c7cbb9;font-size:11px;line-height:1.45}
 .lot-traits{display:flex;flex-wrap:wrap;gap:3px 7px;margin-top:6px;color:#d8c491;font-size:11px}
 .lot-traits span{white-space:nowrap}
 .lot-order{margin-top:auto;padding-top:10px}
