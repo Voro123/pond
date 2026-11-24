@@ -1864,7 +1864,10 @@ function steer(s,dt,i){
  case 'dart':activityScale=cycle<4?1.85:cycle<8?.08:.72;break;
  case 'glide':activityScale=.7+.23*Math.cos(elapsed*.23+seed*7);break;
  }
- const returning=s.style==='home'&&Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height)>100;
+ // Finish a return trip before roaming again. Leave enough room for the body's turn.
+ const homeDistance=Math.hypot((s.x-s.home.x)*width,(s.y-s.home.y)*height);
+ const returning=s.style==='home'&&homeDistance>(s.returning?42:Math.max(100,s.length*.85));
+ s.returning=returning;
  turnHome||=returning;
  const partner=response?null:matingTarget(s);
  const canVisit=!response&&!partner&&!meal&&!wave;
@@ -1892,7 +1895,9 @@ function steer(s,dt,i){
    foodTarget={x:meal.x+Math.cos(bearing)*24/width,y:meal.y+Math.sin(bearing)*24/height};
   }
  }
- const target=wave||response?.target||partner||foodTarget||site||(turnHome?{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)}:s.target);
+ let destination=s.target;
+ if(turnHome)destination=returning?s.home:{x:s.home.x+.023*Math.cos(elapsed*.12+seed*11),y:s.home.y+.029*Math.sin(elapsed*.16+seed*11)};
+ const target=wave||response?.target||partner||foodTarget||site||destination;
  let vx=target.x*width-hx,vy=target.y*height-hy;
  const norm=Math.max(1,Math.hypot(vx,vy));vx/=norm;vy/=norm;
  s.freeSwimming=s.fish.kind==='鱼类'&&!site&&!response&&!partner&&!meal&&!wave&&!waiting&&!turnHome&&activityScale>=.5&&s.speed>8;
@@ -1943,12 +1948,13 @@ function steer(s,dt,i){
  const homing=turnHome&&!site&&!partner&&!meal&&!response&&!wave;
  const approaching=site||partner||wave||response||meal||homing;
  const precisionTurn=meal||wave||response||restRadius&&site||partner;
- const turnSpeed=precisionTurn||s.passingRock||s.siteRetry>elapsed?Math.max(65,s.speed):s.speed;
+ const returnTrip=homing&&returning;
+ const turnSpeed=precisionTurn||returnTrip||s.passingRock||s.siteRetry>elapsed?Math.max(65,s.speed):s.speed;
  const turnRadius=s.length*((response||meal) ? .36 : .47);
  const turn=Math.min(response?1.8:meal?1.35:.85,turnSpeed/Math.max(12,turnRadius));
  const restingAtSite=(site===target&&!site.host||homing)&&norm<(restRadius||(homing?42:12));
  // A hovering fish can adjust a short distance to a nearby station without a U-turn.
- const settling=!s.passingRock&&!precisionTurn&&(homing||site===target&&!site.host)&&norm<Math.max(32,s.length*.65);
+ const settling=!s.passingRock&&!returnTrip&&!precisionTurn&&(homing||site===target&&!site.host)&&norm<Math.max(32,s.length*.65);
  const previousAngle=s.angle;
  if(restingAtSite||settling)s.angular=0;
  else s.angular+=(clamp(diff*(wave?5:1.8),wave?-4:-turn,wave?4:turn)-s.angular)*(1-Math.exp(-dt*(wave?8:2.4)));
