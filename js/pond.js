@@ -142,16 +142,23 @@ function steer(s,dt,i){
  const fullness=g.full,habit=s.fish.habit,seed=garden.fish[s.fish.id].seed;
  const hunger=1-fullness/100;
  const response=s.rippleResponse?.until>elapsed?s.rippleResponse:null;
- let meal=null,waiting=false,schooled=false,dist=(145+575*hunger*hunger)*(s.style==='bold'?1.35:1);
+ let meal=null,score=Infinity,waiting=false,schooled=false,dist=(145+575*hunger*hunger)*(s.style==='bold'?1.35:1);
+ const detectionRange=dist;
  const item=garden.fish[s.fish.id];
+ const mealMargin=bodyRadius(s)+s.length/(2*SPINE_SEGMENTS);
  const eligible=!item.brood&&!response&&fullness<88 && Date.now()-(garden.fish[s.fish.id].biteAt||0)>650;
  for(const p of food){
-   if(!eligible||p.air>0||zoneAt(p.x*width)!==s.fish.habitat)continue;
+   if(!eligible||p.air>0||s.missedMeals?.get(p)>elapsed||zoneAt(p.x*width)!==s.fish.habitat)continue;
    if(habit==='scrape'?p.kind!=='algae':p.kind!=='grain'&&habit!=='graze')continue;
-   const d=Math.hypot(hx-p.x*width,hy-p.y*height);if(d>=dist)continue;
+   const d=Math.hypot(hx-p.x*width,hy-p.y*height);
+   // Keep following a drifting grain when its neighbours are almost equidistant.
+   const priority=d-(p===s.chasedMeal?16:0);
+   if(d>=detectionRange||priority>=score)continue;
+   if(feedingClearance(s,p.x*width,p.y*height)<mealMargin)continue;
    if(s.style==='patient'&&s.type!==STRIPED_KILLIFISH&&elapsed-p.castAt<3){waiting=true;continue;}
-   dist=d;meal=p;
+   dist=d;score=priority;meal=p;
  }
+ s.chasedMeal=meal;
  let wave=s.wave;
  if(wave){
   const time=elapsed-wave.start;
@@ -259,8 +266,20 @@ function steer(s,dt,i){
  const lookahead=Math.max(80,s.length);
  if(!waterPoint(s.x+Math.cos(s.angle)*lookahead/width,s.y+Math.sin(s.angle)*lookahead/height,s.fish.habitat)){vx+=(bank+.5-s.x)*6;vy+=(.5-s.y)*6;}
  const habitatSite=site||(type===HILLSTREAM&&meal)||(partner&&spawningBeds[type])||(s.retreatUntil>elapsed&&response?.target);
- const heading=rockDetour(s,Math.atan2(vy,vx),habitatSite,seed);
- const diff=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
+ const chasing=meal&&target===meal;
+ let heading;
+ if(chasing){
+  const waypoint=feedingWaypoint(s,meal,mealMargin);
+  s.passingRock=null;s.accessRock=type===HILLSTREAM?visibleRocks.find(r=>r.site===baskingStone):null;
+  heading=waypoint?Math.atan2(waypoint.y-hy,waypoint.x-hx):Math.atan2(.5*height-hy,(bank+.5)*width-hx);
+ }else{
+  s.mealRoute=null;
+  heading=rockDetour(s,Math.atan2(vy,vx),habitatSite,seed);
+ }
+ let diff=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
+ // At a near U-turn, contact at the tail can move the mouth across the bearing
+ // directly behind it. Finish turning on the chosen side.
+ if(chasing&&Math.abs(diff)>2.65&&Math.abs(s.angular)>.04)diff=Math.sign(s.angular)*Math.abs(diff);
  const inspecting=type===PEA_PUFFER&&meal&&dist<65;
  const restRadius=shallowRestRadius[type];
  const homing=turnHome&&!site&&!partner&&!meal&&!response&&!wave;
@@ -369,7 +388,7 @@ function steer(s,dt,i){
  if(garden.fish[s.fish.id].traits.includes('fast'))speed*=1.5;
  if(group)speed=.4*speed+.6*group.speed;
  speed/=1+Math.min(Math.abs(diff),1.1)*.45;
- if(approaching&&norm<Math.max(65,s.length)&&!wave&&!settling){
+ if(approaching&&(chasing||norm<Math.max(65,s.length))&&!wave&&!settling){
   speed*=Math.max(precisionTurn?0:.24,Math.cos(diff));
  }
  if(homing)speed=Math.min(speed,norm);

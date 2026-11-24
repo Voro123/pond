@@ -10,6 +10,71 @@ function bodyRadius(s){
  const aspect=s.sprite.naturalWidth?s.sprite.naturalHeight/s.sprite.naturalWidth:.48;
  return s.length*aspect*.5;
 }
+// Use the same bank, stones and log capsule as the body collision pass.
+function feedingClearance(s,x,y){
+ const zone=s.fish.habitat;
+ let space=bankClearance(x,y,zone);
+ for(const rock of visibleRocks){
+  if(Boolean(rock.reef)!==(zone==='reef'))continue;
+  if(s.type===HILLSTREAM&&rock.site===baskingStone)continue;
+  let dx=x-rock.site.x*width,dy=y-rock.site.y*height;
+  if(rock===driftwood){
+   const axis=woodContact(dx,dy);dx-=axis.x;dy-=axis.y;
+  }
+  const radius=rock===driftwood?rock.h*.5:rock===crevice?creviceRadius:rock.w*.5;
+  space=Math.min(space,Math.hypot(dx,dy)-radius);
+ }
+ return space;
+}
+function feedingSegment(s,a,b,margin){
+ const dx=b.x-a.x,dy=b.y-a.y,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/12));
+ // Allow departure from contact, including when a new prop appears underneath.
+ let required=Math.min(margin,feedingClearance(s,a.x,a.y));
+ for(let i=1;i<=steps;i++){
+  const space=feedingClearance(s,a.x+dx*i/steps,a.y+dy*i/steps);
+  if(space<required-.01)return false;
+  required=Math.min(margin,Math.max(space,required));
+ }
+ return true;
+}
+function findFeedingPath(s,start,goal,margin){
+ const step=Math.max(32,margin),queue=[{...start,col:0,row:0}],seen=new Set(['0,0']);
+ for(let i=0;i<queue.length;i++){
+  const node=queue[i];
+  if(i&&feedingSegment(s,node,goal,margin)){
+   const path=[];
+   for(let p=node;p.parent;p=p.parent)path.push(p);
+   return path.reverse();
+  }
+  for(const [dc,dr] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const col=node.col+dc,row=node.row+dr,key=col+','+row;
+   if(seen.has(key))continue;
+   const next={x:start.x+col*step,y:start.y+row*step,col,row,parent:node};
+   if(feedingClearance(s,next.x,next.y)<margin||!feedingSegment(s,node,next,margin))continue;
+   seen.add(key);queue.push(next);
+  }
+ }
+ return [];
+}
+function feedingWaypoint(s,meal,margin){
+ const start={x:s.x*width,y:s.y*height},goal={x:meal.x*width,y:meal.y*height};
+ let route=s.mealRoute;
+ const room=Math.min(feedingClearance(s,goal.x,goal.y),margin+Math.max(12,s.length*.12));
+ if(feedingSegment(s,start,goal,route?.meal===meal?room:margin)){s.mealRoute=null;return goal;}
+ if(!route||route.meal!==meal||Math.hypot(goal.x-route.goal.x,goal.y-route.goal.y)>20||
+    !route.path.length||!feedingSegment(s,start,route.path[0],margin)){
+  let path=findFeedingPath(s,start,goal,room);
+  if(!path.length&&room>margin)path=findFeedingPath(s,start,goal,margin);
+  route=s.mealRoute={meal,goal,path};
+  if(!path.length){
+   s.missedMeals??=new WeakMap();
+   s.missedMeals.set(meal,elapsed+1);
+  }
+ }
+ // Skip grid corners as soon as the next stretch is visible from the mouth.
+ while(route.path.length>1&&feedingSegment(s,start,route.path[1],room))route.path.shift();
+ return route.path[0];
+}
 function rockDetour(s,angle,habitatSite,seed){
  const dx=Math.cos(angle),dy=Math.sin(angle),halfWidth=bodyRadius(s);
  let nearest=null,best=Math.max(100,s.length*1.5),heading=angle;
@@ -27,7 +92,9 @@ function rockDetour(s,angle,habitatSite,seed){
   if(rock===s.passingRock){
    const tail=s.bones[SPINE_SEGMENTS];
    const projection=(tail.x-rock.site.x*width)*Math.cos(s.passAngle)+(tail.y-rock.site.y*height)*Math.sin(s.passAngle);
-   if(projection<radius&&Math.hypot(rx,ry)<2*s.length+radius+100)return s.passAngle;
+   const reach=Math.max(80,s.length);
+   const bankAhead=bankClearance(s.x*width+reach*Math.cos(s.passAngle),s.y*height+reach*Math.sin(s.passAngle),s.fish.habitat);
+   if(bankAhead>halfWidth&&projection<radius&&Math.hypot(rx,ry)<2*s.length+radius+100)return s.passAngle;
   }
   const ahead=rx*dx+ry*dy,cross=rx*dy-ry*dx;
   if(ahead<=0||ahead>=best||Math.abs(cross)>=radius)continue;
@@ -38,7 +105,12 @@ function rockDetour(s,angle,habitatSite,seed){
   }
   const side=Math.abs(cross)>2?Math.sign(cross):(seed<.5?-1:1);
   const tangent=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(rx,ry))))+.19;
-  heading=Math.atan2(ry,rx)+side*tangent;
+  const bearing=Math.atan2(ry,rx),reach=Math.max(80,s.length);
+  const clearsBank=course=>bankClearance(s.x*width+reach*Math.cos(course),s.y*height+reach*Math.sin(course),s.fish.habitat)>halfWidth;
+  let course=bearing+side*tangent;
+  if(!clearsBank(course))course=bearing-side*tangent;
+  if(!clearsBank(course))continue;
+  heading=course;
   nearest=rock;best=ahead;
  }
  s.passingRock=nearest;s.passAngle=heading;
