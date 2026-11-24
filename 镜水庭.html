@@ -1339,8 +1339,22 @@ function visitorState(now=Date.now()){
  if(v.type===SEA_STAR)return {...v,x:zoneStart('reef')/width+.45+.028*Math.sin(v.age/38),y:.68+.018*Math.cos(v.age/46),heading:.2*Math.sin(v.age/38),status:'沿浅沙觅食'};
  const leg=Math.floor(v.age/8),time=v.age%8;
  const {x:ax,y:ay}=shorePerch(v.start,leg),{x:bx,y:by}=shorePerch(v.start,leg+1);
- const t=Math.min(1,time/5),f=t*t*(3-2*t);
- return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f-.045*Math.sin(Math.PI*f),heading:Math.atan2((by-ay-.045*Math.PI*Math.cos(Math.PI*f))*height,(bx-ax)*width),status:t===1?'落脚歇翅':'低飞巡猎'};
+ const flight=5,ramp=.4;
+ // Ramp up and down only near the leaves, with steady speed between them.
+ const t=Math.min(time,flight),remaining=flight-t;
+ let travel=t-ramp/2;
+ if(t<ramp)travel=t*t/(2*ramp);
+ else if(remaining<ramp)travel=flight-ramp-remaining*remaining/(2*ramp);
+ const f=travel/(flight-ramp);
+ let heading=Math.atan2((by-ay)*height,(bx-ax)*width);
+ // Turn on the leaf just before takeoff so the next flight starts facing forward.
+ if(time>7.5){
+  const next=shorePerch(v.start,leg+2);
+  const turn=Math.atan2((next.y-by)*height,(next.x-bx)*width)-heading;
+  const u=(time-7.5)/.5;
+  heading+=Math.atan2(Math.sin(turn),Math.cos(turn))*u*u*(3-2*u);
+ }
+ return {...v,x:ax+(bx-ax)*f,y:ay+(by-ay)*f,heading,status:time<flight?'低飞巡猎':'落脚歇翅'};
 }
 function drawVisitor(c,underwater){
  const v=visitorState();if(!v||(v.zone==='reef')!==underwater)return;
@@ -1350,7 +1364,7 @@ function drawVisitor(c,underwater){
  else if(v.type===HERMIT_CRAB)paintHermitCrab(c,v.status==='背壳漫步'?2*Math.sin(v.age*5):0);
  else if(v.type===BUTTERFLY)paintButterfly(c,v.status==='绕岸翻飞'?.65+.32*Math.sin(v.age*19):.32);
  else if(wildImage.naturalWidth){c.rotate(Math.PI);c.shadowColor='#18221c77';c.shadowBlur=3;c.shadowOffsetY=v.status==='低飞巡猎'?7:2;
- const h=42*wildImage.height/wildImage.width;c.drawImage(wildImage,-21,-h/2,42,h*(v.status==='低飞巡猎'?.85+.15*Math.sin(elapsed*52):1));}
+ const h=42*wildImage.height/wildImage.width;c.drawImage(wildImage,-21,-h/2,42,h);}
  c.restore();
 }
 function locateVisitor(){
